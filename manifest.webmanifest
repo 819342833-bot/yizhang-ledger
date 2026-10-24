@@ -1,0 +1,14 @@
+{
+  "name": "衣账 · 服装进销存账本",
+  "short_name": "衣账",
+  "description": "服装库存入库出库，预估价与成交价对比，自动算月度盈亏",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F6F8",
+  "theme_color": "#2F54EB",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
