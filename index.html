@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-title" content="衣账"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="manifest" href="manifest.webmanifest"><script>window.appId="app_17gpvrs4tph";window.userId="";window.tenantId="5306988962";window.csrfToken="";window.appEnv="runtime";globalThis.CLIENT_BASE_PATH="/app/app_17gpvrs4tph";globalThis.ENVIRONMENT="online"</script><meta property="og:title" content="服装进销存账本">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>服装进销存账本</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Cpath d='M18 22l8-8h12l8 8 4 3-6 5v16H16V30l-6-5z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f4f5f7; --card:#fff; --ink:#1a1d23; --sub:#8a919c; --line:#e9ebef;
+  --brand:#2563eb; --brand-soft:#e8effe; --brand-deep:#1d4ed8;
+  --good:#16a34a; --good-soft:#e6f6ec; --bad:#dc2626; --bad-soft:#fdeceb;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 22px -10px rgba(16,24,40,.14);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.app{max-width:680px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:0 0 env(safe-area-inset-bottom)}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px}
+.hdr h1{font-size:20px;margin:0;font-weight:700}
+.hdr .btn-record{display:inline-flex;align-items:center;gap:5px;background:var(--brand);color:#fff;border:none;border-radius:999px;padding:10px 14px;min-height:44px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:var(--shadow)}
+/* notice */
+.notice{background:#eaf7f0;border:1px solid #cfeeda;border-radius:12px;padding:10px 13px;margin:6px 18px 12px;font-size:12px;color:#17693a;line-height:1.6;display:flex;gap:8px}
+.notice .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;margin-top:5px;flex:none}
+/* cards */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#2563eb;border-radius:16px;overflow:hidden;margin:4px 18px 14px;box-shadow:var(--shadow)}
+.cards .c{background:#fff;padding:12px 14px}
+.cards .c.brand{background:linear-gradient(150deg,#2563eb,#1d4ed8);color:#fff}
+.cards .c .lab{font-size:11px;opacity:.85;display:flex;justify-content:space-between}
+.cards .c .val{font-size:20px;font-weight:800;margin-top:3px;letter-spacing:-.3px;display:flex;align-items:baseline;gap:3px}
+.cards .c .val small{font-size:11px;font-weight:600;opacity:.7}
+.cards .c .cap{font-size:10px;opacity:.75;margin-top:1px}
+.cards .c.white .val{color:#1a1d23}
+/* search */
+.search{margin:2px 18px 12px;position:relative}
+.search input{width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:11px 13px 11px 38px;font-size:15px;color:var(--ink);outline:none}
+.search input:focus{border-color:var(--brand)}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--sub);pointer-events:none}
+/* list */
+.list{display:flex;flex-direction:column;gap:9px;padding:0 18px 30px}
+.item{background:var(--card);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px}
+.item .body{flex:1;min-width:0}
+.item .name{font-weight:700;font-size:15px}
+.item .meta{font-size:12px;color:var(--sub);margin-top:2px}
+.item .right{text-align:right;flex:none}
+.item .right .stock{font-size:17px;font-weight:800}
+.item .right .cap{font-size:11px;color:var(--sub)}
+.empty{text-align:center;color:var(--sub);padding:40px 16px;font-size:13px}
+.empty .big{width:52px;height:52px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;background:var(--line);border-radius:16px;color:var(--sub);opacity:.75}
+/* form page */
+.form-wrap{padding:2px 18px}
+.tabs-seg{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:4px 0 16px}
+.tabs-seg button{flex:1;border:none;background:transparent;padding:10px;font-size:14px;font-weight:600;color:var(--sub);border-radius:10px;cursor:pointer}
+.tabs-seg button.active{background:var(--card);color:var(--brand);box-shadow:var(--shadow)}
+.form-h{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 12px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-weight:600}
+.field input,.field select{width:100%;border:1px solid var(--line);background:#fbfcfd;border-radius:11px;padding:12px 13px;font-size:16px;color:var(--ink);outline:none;font-family:inherit}
+.field input:focus,.field select:focus{border-color:var(--brand);background:#fff}
+.field input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.field input::-webkit-outer-spin-button,.field input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field .hint{font-size:11px;color:var(--sub);margin-top:4px}
+.btn-primary{width:100%;border:none;border-radius:13px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;color:#fff;background:var(--brand);box-shadow:var(--shadow);margin-top:4px}
+.btn-primary.out{background:var(--bad)}
+.tip-line{font-size:11px;color:var(--sub);margin:10px 2px 4px;line-height:1.6}
+/* recent */
+.recent-title{display:flex;align-items:center;gap:8px;padding:18px 18px 10px;font-size:14px;font-weight:700}
+.recent-title .count{font-size:11px;color:var(--sub);font-weight:500;background:var(--line);padding:2px 8px;border-radius:20px}
+/* report */
+.rep-banner{background:linear-gradient(150deg,#2563eb,#1d4ed8);color:#fff;border-radius:16px;margin:4px 18px 12px;padding:16px;box-shadow:var(--shadow)}
+.rep-banner .t{font-size:12px;opacity:.9}
+.rep-banner .v{font-size:28px;font-weight:800;margin-top:4px;letter-spacing:-.5px}
+.rep-banner .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.22)}
+.rep-banner .g .lab{font-size:11px;opacity:.85}
+.rep-banner .g .val{font-size:15px;font-weight:700;margin-top:1px}
+.rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 18px 6px}
+.rep-cell{background:var(--card);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow)}
+.rep-cell .lab{font-size:11px;color:var(--sub)}
+.rep-cell .val{font-size:18px;font-weight:800;margin-top:3px}
+.rep-cell .cap{font-size:11px;color:var(--sub);margin-top:2px}
+.rep-cell .val.good{color:var(--good)} .rep-cell .val.bad{color:var(--bad)}
+.section-h{padding:18px 18px 10px;font-size:14px;font-weight:700}
+/* ledger file */
+.ledger-card{background:var(--card);border-radius:16px;margin:0 18px 12px;padding:16px;box-shadow:var(--shadow)}
+.ledger-card .t{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.ledger-card .desc{font-size:12px;color:var(--sub);margin:8px 0 12px;line-height:1.7}
+.ledger-card .desc b{color:var(--ink)}
+.ledger-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.ledger-item:last-child{border-bottom:none}
+.ledger-item .lab{font-weight:600}
+.ledger-item .lab .sub{display:block;font-size:11px;color:var(--sub);font-weight:400;margin-top:2px}
+.ledger-item button{background:var(--brand-soft);color:var(--brand-deep);border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;flex:none}
+.ledger-item button.warn{background:var(--bad-soft);color:var(--bad)}
+/* switch */
+.switch{position:relative;width:46px;height:27px;flex:none;cursor:pointer}
+.switch input{opacity:0;width:0;height:0}
+.switch .track{position:absolute;inset:0;background:#cbd3de;border-radius:27px;transition:.2s}
+.switch .track:before{content:"";position:absolute;width:21px;height:21px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch input:checked + .track{background:var(--brand)}
+.switch input:checked + .track:before{transform:translateX(19px)}
+/* status */
+.status-box{margin:0 18px 12px;background:var(--card);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.status-box .row{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--good)}
+.status-box .row .pulse{width:8px;height:8px;border-radius:50%;background:#22c55e;flex:none;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.status-box .desc{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.6}
+.backup-list{margin:0 18px 14px;background:var(--card);border-radius:14px;padding:12px 16px;box-shadow:var(--shadow);font-size:12px;color:var(--sub);line-height:1.9}
+.backup-list b{color:var(--ink)}
+.risk-box{margin:0 18px 30px;background:var(--bad-soft);border:1px solid #f5c9c7;border-radius:12px;padding:12px 14px;font-size:12px;color:#9b1c1c;line-height:1.7}
+/* tabs bottom */
+.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;z-index:40;padding-bottom:env(safe-area-inset-bottom);max-width:680px;margin:0 auto}
+.tabs button{flex:1;border:none;background:none;padding:9px 4px 8px;font-size:11px;color:var(--sub);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:600}
+.tabs button.active{color:var(--brand)}
+.tabs button svg{width:22px;height:22px}
+.page{display:none;padding-bottom:76px}
+.page.active{display:block}
+.hidden{display:none}
+.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(10px);background:#1a1d23;color:#fff;font-size:13px;padding:10px 16px;border-radius:20px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:86vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+input[type=file]{display:none}
+/* sheet modal */
+.sheet-mask{position:fixed;inset:0;background:rgba(16,20,28,.45);display:none;align-items:flex-end;justify-content:center;z-index:70}
+.sheet-mask.open{display:flex}
+.sheet{background:var(--card);width:100%;max-width:680px;border-radius:20px 20px 0 0;padding:14px 18px calc(18px + env(safe-area-inset-bottom));animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.sheet .grab{width:40px;height:4px;background:var(--line);border-radius:4px;margin:0 auto 14px}
+.sheet h3{margin:0 0 4px;font-size:17px;font-weight:700}
+.sheet .sub{font-size:12px;color:var(--sub);margin-bottom:14px}
+.sheet .stat{display:flex;gap:16px;margin:2px 0 14px}
+.sheet .stat .s{background:var(--bg);border-radius:12px;padding:10px 14px;flex:1}
+.sheet .stat .s .lab{font-size:11px;color:var(--sub)}
+.sheet .stat .s .val{font-size:17px;font-weight:800;margin-top:2px}
+.sheet .btn{width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;color:#fff;background:var(--brand)}
+.sheet .btn.danger{background:var(--bad)}
+.sheet .btn.ghost{background:var(--line);color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 顶部 -->
+  <div class="hdr">
+    <h1 id="pageTitle">库存</h1>
+    <button class="btn-record" id="topRecordBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      记一笔
+    </button>
+  </div>
+
+  <!-- ============ 库存页 ============ -->
+  <main id="page-stock" class="page active">
+    <div class="notice"><span class="dot"></span><div>账本会生成 Excel 文件保存。请在「报表」页点「保存 Excel 账本」，把它存到微信 / 网盘，数据就跟着文件走、不会丢。</div></div>
+    <div class="cards">
+      <div class="c brand"><div class="lab">当前库存成本</div><div class="val">¥<span id="kCost">0</span></div></div>
+      <div class="c brand"><div class="lab">在库件数</div><div class="val"><span id="kQty">0</span><small>件</small></div></div>
+      <div class="c white"><div class="lab">已售金额</div><div class="val">¥<span id="kSoldAmt">0</span></div></div>
+      <div class="c white"><div class="lab">款型 SKU</div><div class="val"><span id="kSku">0</span><small>个</small></div></div>
+    </div>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="stockSearch" placeholder="搜款式名 / 颜色">
+    </div>
+    <div class="list" id="stockList"></div>
+  </main>
+
+  <!-- ============ 记一笔页 ============ -->
+  <main id="page-record" class="page">
+    <div class="form-wrap">
+      <div class="tabs-seg">
+        <button id="segIn" class="active">入库（进货）</button>
+        <button id="segOut">出库（卖出）</button>
+      </div>
+      <div class="form-h" id="formTitle">进货登记</div>
+
+      <div class="field"><label>日期</label><input type="date" id="fDate"></div>
+      <div class="field"><label>数量（件）</label><input type="number" id="fQty" inputmode="numeric" placeholder="0"></div>
+      <div class="field" id="nameField"><label>款式名称</label><input type="text" id="fName" placeholder="如：醋酸缎面衬衫"></div>
+      <div class="field" id="outPickField"><label>选择要出库的款式</label><select id="fOutPick"></select><div class="hint" id="outCostHint" style="display:none"></div></div>
+      <div class="field"><label>颜色</label><input type="text" id="fColor" placeholder="如：米白"></div>
+      <div class="field"><label id="fPriceLabel">进价（元/件）</label><input type="number" id="fPrice" inputmode="decimal" placeholder="0"></div>
+      <div class="field" id="supplierField">
+        <label>供应商 / 进货渠道</label><input type="text" id="fSupplier" placeholder="选填，如：十三行 A107">
+      </div>
+      <div class="field"><label>备注</label><input type="text" id="fNote" placeholder="选填"></div>
+      <div class="tip-line" id="tipLine">同一款式不同颜色请分开录入，方便单独看哪个色好卖。</div>
+      <button class="btn-primary" id="saveBtn">确认入库</button>
+      <div style="height:6px"></div>
+    </div>
+    <div class="recent-title">最近记录 <span class="count" id="recentCount"></span></div>
+    <div class="list" id="recentList"></div>
+  </main>
+
+  <!-- ============ 报表页 ============ -->
+  <main id="page-report" class="page">
+    <div class="rep-banner">
+      <div class="t">已实现盈亏（实际成交价 − 进价）</div>
+      <div class="v"><span id="rRealized">+¥0</span></div>
+      <div class="grid">
+        <div class="g"><div class="lab">已卖出</div><div class="val"><span id="rSold">0</span>件</div></div>
+        <div class="g"><div class="lab">已售金额</div><div class="val" id="rSoldAmt">¥0</div></div>
+        <div class="g"><div class="lab">累计进货支出</div><div class="val" id="rSpend">¥0</div></div>
+        <div class="g"><div class="lab">回款率</div><div class="val" id="rRate">0%</div></div>
+      </div>
+    </div>
+    <div class="rep-grid">
+      <div class="rep-cell"><div class="lab">在库成本</div><div class="val" id="rInCost">¥0</div><div class="cap" id="rInCap">0 件未卖</div></div>
+      <div class="rep-cell"><div class="lab">已售金额</div><div class="val" id="rInSoldAmt">¥0</div><div class="cap">累计卖出回款</div></div>
+      <div class="rep-cell"><div class="lab">在库件数</div><div class="val" id="rInQty">0</div><div class="cap">当前库存</div></div>
+      <div class="rep-cell"><div class="lab">盈利金额</div><div class="val good" id="rProfit">+¥0</div><div class="cap">实际成交价 vs 进价</div></div>
+    </div>
+
+    <div class="section-h">月度盈亏</div>
+    <div class="list" id="monthList"></div>
+
+    <div class="section-h">账本文件 <span style="color:var(--bad)">（最重要）</span></div>
+    <div class="ledger-card">
+      <div class="desc">你的库存数据会生成一份 <b>Excel 账本文件</b>。把这份 Excel 存进微信 / iCloud 云盘 / 网盘，就永远不会丢；换手机或清数据后，再通过「从 Excel 导入」恢复回来。</div>
+      <div class="ledger-item"><div class="lab">保存 Excel 账本<br><span class="sub">一键生成最新账本 Excel，可发到微信或存网盘</span></div><button id="saveFileBtn">保存</button></div>
+      <div class="ledger-item">
+        <div class="lab">每次录入后自动保存 Excel<span class="sub">开启后，每记一笔就自动生成最新 Excel，数据永远有文件兜底</span></div>
+        <label class="switch"><input type="checkbox" id="autoSave"><span class="track"></span></label>
+      </div>
+    </div>
+
+    <div class="section-h">其他备份方式</div>
+    <div class="ledger-card">
+      <div class="ledger-item"><div class="lab">复制全部数据到剪贴板<span class="sub">粘贴到微信「文件传输助手」或备忘录，等于再多一处云端存档</span></div><button id="copyBtn">复制</button></div>
+      <div class="ledger-item"><div class="lab">从 Excel / 文件恢复<span class="sub">支持从微信收到的 .xlsx 账本，或 .json 备份恢复</span></div><button id="restoreBtn">选择</button></div>
+      <div class="ledger-item"><div class="lab">导出全部流水 Excel<span class="sub">入库 + 出库明细，Excel / 微信可直接打开</span></div><button id="csvBtn">导出</button></div>
+      <div class="ledger-item"><div class="lab">完整备份 JSON<span class="sub">纯数据文件，体积小，适合发给新设备</span></div><button id="jsonBtn">备份</button></div>
+    </div>
+
+    <div class="section-h">存储状态</div>
+    <div class="status-box">
+      <div class="row"><span class="pulse"></span>正常：数据自动保存在本机</div>
+      <div class="desc">录一笔会立刻写入手机本地，关掉 App 也不会丢。</div><div class="desc" id="offlineTip" style="margin-top:6px">正在检查离线缓存…</div>
+    </div>
+
+    <div class="section-h">这套数据是怎么保命的</div>
+    <div class="backup-list">
+      <b>第一道：Excel 账本</b> —— 一键生成 .xlsx，存进微信 / 网盘，跟着文件走，换手机都还在。<br>
+      <b>第二道：浏览器缓存</b> —— 每次录入自动写本机，作为快速恢复。<br>
+      <b>第三道：剪贴板 / JSON</b> —— 随时可以再存一份到微信或网盘。
+    </div>
+    <div class="risk-box">唯一的风险：三份都没有。所以「保存 Excel 账本」生成的那个 .xlsx 请务必留着，它就是你的账本本体。</div>
+  </main>
+
+  <input type="file" id="fileInput" accept=".xlsx,.json,.html">
+
+  <!-- 底部导航 -->
+  <nav class="tabs">
+    <button data-tab="stock" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      库存
+    </button>
+    <button data-tab="record">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      记一笔
+    </button>
+    <button data-tab="report">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      报表
+    </button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- 库存项编辑弹层 -->
+  <div class="sheet-mask" id="skuMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3 id="skuTitle">编辑商品</h3>
+      <div class="sub" id="skuSub"></div>
+      <div class="stat">
+        <div class="s"><div class="lab">当前库存</div><div class="val" id="skuStock">0</div></div>
+        <div class="s"><div class="lab">当前进价</div><div class="val" id="skuCost">¥0</div></div>
+      </div>
+      <div class="field"><label>修改进价（元/件）</label><input type="number" id="skuNewCost" inputmode="decimal" placeholder="新进价"></div>
+      <button class="btn" id="skuSaveCost">保存进价</button>
+      <button class="btn danger" id="skuDelete">删除该商品</button>
+      <button class="btn ghost" id="skuCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script>if(typeof XLSX==="undefined"){var _s=document.createElement("script");_s.src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js";_s.async=false;document.head.appendChild(_s);}</script>
+<script>
+/* ================= 数据模型 =================
+  db.records[] 每条一笔：{id, type:'in'|'out', date, name, color,
+    price(进价/成交价), supplier, note, qty, ts}
+  SKU 键 = name + '|' + color（不同颜色分开算库存）
+  localStorage 作为快速恢复缓存；账本本体是 Excel 文件
+============================================ */
+const LS_KEY = 'fashion_ledger_v2';
+const EMBED_ID = 'EMBEDDED_DATA';
+let db = { records: [] };
+let mode = 'in';
+let autoSave = false;
+let stockQuery = '';
+
+/* ---------- 存取 ---------- */
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function load(){
+  // 1) 优先读 HTML 内嵌数据（账本本体，随文件走）
+  try{
+    const el = document.getElementById(EMBED_ID);
+    if(el && el.textContent){ const d=JSON.parse(el.textContent); if(d && Array.isArray(d.records)){ db=d; return; } }
+  }catch(e){}
+  // 2) 其次读浏览器缓存
+  try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const d=JSON.parse(raw); if(d&&Array.isArray(d.records)){ db=d; return; } } }catch(e){}
+  db={records:[]};
+}
+function cache(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(db)); }catch(e){} }
+
+/* 把当前数据内嵌回 HTML 本体，返回可下载的完整账本字符串 */
+function buildLedgerHTML(){
+  const marker = 'id="'+EMBED_ID+'"';
+  const payload = JSON.stringify(db);
+  let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  // 把 script 里的 load 数据回写：给 EMBED 脚本标签填内容
+  const embed = '<script id="'+EMBED_ID+'" type="application/json">'+payload+'<'+'/script>';
+  if(html.indexOf(marker)>=0){
+    html = html.replace(/<script id="EMBEDDED_DATA" type="application\/json">[\s\S]*?<\/script>/, embed);
+  } else {
+    html = html.replace('<head>', '<head>\n'+embed);
+  }
+  return html;
+}
+function download(name, content, mime){
+  const blob=new Blob([content],{type:mime||'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},400);
+}
+function todayStamp(){
+  const d=new Date(); const p=x=>String(x).padStart(2,'0');
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes());
+}
+/* 生成 Excel 账本工作簿（含流水 + 库存汇总 + 总览 三个表） */
+function buildLedgerWorkbook(){
+  if(typeof XLSX==='undefined') throw new Error('Excel 组件未加载，请检查网络后重试');
+  const wb = XLSX.utils.book_new();
+  // 表1：出入库流水
+  const rows=[['日期','类型','款式','颜色','数量','单价(元)','进价(元)','供应商/渠道','备注']];
+  [...db.records].sort((a,b)=>a.ts-b.ts).forEach(r=>{
+    rows.push([r.date, r.type==='in'?'入库':'出库', r.name, r.color||'', r.qty, r.price, r.type==='out'?(r.cost||''):'', r.supplier||'', r.note||'']);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(rows);
+  ws1['!cols']=[{wch:12},{wch:8},{wch:18},{wch:10},{wch:8},{wch:10},{wch:10},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws1,'出入库流水');
+  // 表2：库存汇总
+  const stocks=stockBySku().filter(s=>s.qty>0);
+  const srows=[['款式','颜色','在库件数','进价(元)','库存成本(元)']];
+  let sCost=0;
+  stocks.forEach(s=>{ srows.push([s.name,s.color||'',s.qty,s.lastIn,s.qty*s.lastIn]); sCost+=s.qty*s.lastIn; });
+  srows.push(['','合计','','',sCost]);
+  const ws2=XLSX.utils.aoa_to_sheet(srows);
+  ws2['!cols']=[{wch:18},{wch:10},{wch:10},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'库存汇总');
+  // 表3：总览
+  let sold=0,soldAmt=0,realized=0,spend=0;
+  db.records.forEach(r=>{
+    if(r.type==='in'){ spend+=(Number(r.price)||0)*r.qty; }
+    else { sold+=r.qty; const amt=(Number(r.price)||0)*r.qty; soldAmt+=amt; realized+=amt-((Number(r.cost)||0)*r.qty); }
+  });
+  const orows=[['指标','数值'],['已卖出(件)',sold],['已售金额(元)',soldAmt],['累计进货支出(元)',spend],['回款率(%)',spend>0?Math.round(soldAmt/spend*100):0],['已实现盈亏(元)',realized],['库存成本(元)',sCost],['导出时间',new Date().toLocaleString()]];
+  const ws3=XLSX.utils.aoa_to_sheet(orows);
+  ws3['!cols']=[{wch:18},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws3,'总览');
+  return wb;
+}
+function saveLedgerExcel(silent){
+  try{
+    const wb=buildLedgerWorkbook();
+    const name='服装账本_'+todayStamp()+'.xlsx';
+    XLSX.writeFile(wb,name);
+    if(!silent) toast('已生成 Excel 账本，请用微信/网盘保存一份');
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+function saveLedgerFile(silent){ saveLedgerExcel(silent); }
+
+/* ---------- 计算 ---------- */
+function skuOf(r){ return r.name+'|'+r.color; }
+/* 返回所有 SKU：当前库存、进价(取最近入库)、成本 */
+function stockBySku(){
+  const map={};
+  const order=[];
+  db.records.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{
+    const k=skuOf(r);
+    if(!map[k]){ map[k]={name:r.name,color:r.color,qty:0,cost:0,lastIn:0}; order.push(k); }
+    if(r.type==='in'){
+      map[k].qty += r.qty;
+      map[k].cost += (Number(r.price)||0)*r.qty;
+      map[k].lastIn = Number(r.price)||0;
+    } else {
+      map[k].qty -= r.qty;
+      map[k].cost -= (Number(r.cost)||map[k].lastIn||0)*r.qty;
+    }
+  });
+  return order.map(k=>map[k]);
+}
+/* 取某 SKU 当前进价（最近入库价），无则返回 0 */
+function costOf(name,color){
+  const s=stockBySku().find(x=>(x.name+'|'+x.color)===(name+'|'+color));
+  return s?s.lastIn:0;
+}
+
+/* ---------- 渲染：库存页 ---------- */
+function renderStock(){
+  const stocks=stockBySku();
+  let cost=0,qty=0,soldAmt=0,skus=0;
+  const q=stockQuery.trim().toLowerCase();
+  const filtered=stocks.filter(s=>{
+    if(s.qty<=0) return false;
+    if(!q) return true;
+    return (s.name+' '+s.color).toLowerCase().includes(q);
+  });
+  stocks.forEach(s=>{ if(s.qty<=0) return; cost+=s.qty*s.lastIn; qty+=s.qty; skus++; });
+  db.records.forEach(r=>{ if(r.type==='out') soldAmt+=(Number(r.price)||0)*r.qty; });
+  document.getElementById('kCost').textContent=fmt(cost);
+  document.getElementById('kQty').textContent=qty;
+  document.getElementById('kSoldAmt').textContent=fmt(soldAmt);
+  document.getElementById('kSku').textContent=skus;
+  const box=document.getElementById('stockList');
+  if(!filtered.length){
+    box.innerHTML=`<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23Z"/></svg></div>${q?'没有匹配的商品':'还没有库存'}<br>${q?'换个关键词试试':'点右上角「记一笔」入库'}</div>`;
+    return;
+  }
+  box.innerHTML=filtered.map(s=>{
+    return `<div class="item" data-sku="${esc(skuOf(s))}" style="cursor:pointer">
+      <div class="body">
+        <div class="name">${esc(s.name)}${s.color?' <span style="color:var(--sub);font-weight:500">· '+esc(s.color)+'</span>':''}</div>
+        <div class="meta">进价 ¥${fmt(s.lastIn)}/件</div>
+      </div>
+      <div class="right"><div class="stock">${s.qty}</div><div class="cap">在库件数</div></div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd3de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+    </div>`;
+  }).join('');
+  // 点击商品弹编辑
+  box.querySelectorAll('.item[data-sku]').forEach(el=>{
+    el.addEventListener('click',()=>openSkuEdit(el.dataset.sku));
+  });
+}
+
+/* ---------- 渲染：记一笔的最近记录 ---------- */
+function renderRecent(){
+  const recent=[...db.records].sort((a,b)=>b.ts-a.ts).slice(0,6);
+  document.getElementById('recentCount').textContent=db.records.length+' 条';
+  const box=document.getElementById('recentList');
+  if(!recent.length){ box.innerHTML=`<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></div>还没有任何记录</div>`; return; }
+  box.innerHTML=recent.map(r=>{
+    const in_=r.type==='in';
+    const color=r.color?' · '+esc(r.color):'';
+    let meta;
+    if(in_) meta=`${fmtDate(r.date)} · 入 ${r.qty} 件 @ ¥${fmt(r.price)}${r.supplier?' · '+esc(r.supplier):''}`;
+    else {
+      const cost=Number(r.cost)||0, real=Number(r.price)||0;
+      const profit=(real-cost)*r.qty;
+      meta=`${fmtDate(r.date)} · 出 ${r.qty} 件 · 成交 ¥${fmt(real)}/件 · 进价 ¥${fmt(cost)} · 盈利 <b style="color:${profit>=0?'var(--good)':'var(--bad)'}">${profit>=0?'+':''}¥${fmt(profit)}</b>`;
+    }
+    return `<div class="item">
+      <div class="body">
+        <div class="name">${esc(r.name)}${color}</div>
+        <div class="meta">${meta}</div>
+      </div>
+      <div class="right"><div class="stock" style="color:${in_?'var(--good)':'var(--bad)'}">${in_?'+':'-'}${r.qty}</div><div class="cap">${in_?'入库':'出库'}</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- 渲染：报表页 ---------- */
+function renderReport(){
+  let sold=0, soldAmt=0, realized=0, spend=0, inCost=0, inQty=0, profit=0;
+  const stocks=stockBySku();
+  stocks.forEach(s=>{ if(s.qty<=0) return; inCost+=s.qty*s.lastIn; inQty+=s.qty; });
+  const byMonth={};
+  db.records.forEach(r=>{
+    if(r.type==='in'){ spend+=(Number(r.price)||0)*r.qty; }
+    else {
+      sold+=r.qty;
+      const amt=(Number(r.price)||0)*r.qty;
+      const cost=(Number(r.cost)||0)*r.qty;
+      soldAmt+=amt; realized+=(amt-cost); profit+=(amt-cost);
+      const ym=(r.date||'').slice(0,7)||'未知';
+      byMonth[ym]=byMonth[ym]||{out:0,income:0,profit:0};
+      byMonth[ym].out+=r.qty; byMonth[ym].income+=amt; byMonth[ym].profit+=(amt-cost);
+    }
+  });
+  const rel=document.getElementById('rRealized'); rel.textContent=(realized>=0?'+':'')+'¥'+fmt(realized);
+  document.getElementById('rSold').textContent=sold;
+  document.getElementById('rSoldAmt').textContent='¥'+fmt(soldAmt);
+  document.getElementById('rSpend').textContent='¥'+fmt(spend);
+  document.getElementById('rRate').textContent=spend>0?Math.round(soldAmt/spend*100)+'%':'0%';
+  document.getElementById('rInCost').textContent='¥'+fmt(inCost);
+  document.getElementById('rInSoldAmt').textContent='¥'+fmt(soldAmt);
+  document.getElementById('rInQty').textContent=inQty;
+  document.getElementById('rInCap').textContent=inQty+' 件未卖';
+  const pf=document.getElementById('rProfit'); pf.textContent=(profit>=0?'+':'')+'¥'+fmt(profit);
+  pf.className='val '+(profit>=0?'good':'bad');
+  // 月度（件数 / 销售额 / 毛利 / 毛利率）
+  const box=document.getElementById('monthList');
+  const months=Object.keys(byMonth).sort().reverse();
+  if(!months.length){ box.innerHTML=`<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>还没有出库记录</div>`; return; }
+  box.innerHTML=months.map(ym=>{
+    const d=byMonth[ym];
+    const rate=d.income>0?Math.round(d.profit/d.income*100):0;
+    const label=(ym==='未知')?ym:(ym.slice(0,4)+' 年 '+Number(ym.slice(5,7))+' 月');
+    return `<div class="item">
+      <div class="body">
+        <div class="name">${label}</div>
+        <div class="meta">出库 ${d.out} 件 · 回款 ¥${fmt(d.income)} · 毛利率 ${rate}%</div>
+      </div>
+      <div class="right"><div class="stock" style="color:${d.profit>=0?'var(--good)':'var(--bad)'}">${d.profit>=0?'+¥':'-¥'}${fmt(Math.abs(d.profit))}</div><div class="cap">本月盈利</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- 工具 ---------- */
+function fmt(n){ n=Number(n)||0; return (n%1===0)?n.toLocaleString('zh-CN'):n.toLocaleString('zh-CN',{maximumFractionDigits:2}); }
+function fmtDate(s){ const a=s.split('-'); return Number(a[1])+'月'+Number(a[2])+'日'; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+function todayStr(){ const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function refresh(){ renderStock(); renderRecent(); renderReport(); }
+
+/* ---------- 页面切换 ---------- */
+const TITLES={stock:'库存',record:'记一笔',report:'报表'};
+function goto(tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.getElementById('pageTitle').textContent=TITLES[tab];
+  refresh();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>goto(b.dataset.tab)));
+document.getElementById('topRecordBtn').addEventListener('click',()=>goto('record'));
+
+/* ---------- 记一笔 ---------- */
+const SEG={in:'in',out:'out'};
+function fillOutPick(){
+  const sel=document.getElementById('fOutPick');
+  const stocks=stockBySku().filter(s=>s.qty>0);
+  if(!stocks.length){ sel.innerHTML='<option value="">暂无库存可出，请先入库</option>'; return; }
+  sel.innerHTML='<option value="">请选择款式</option>'+stocks.map(s=>{
+    return `<option value="${esc(skuOf(s))}" data-cost="${s.lastIn}" data-stock="${s.qty}">${esc(s.name)}${s.color?' · '+esc(s.color):''}（库存 ${s.qty}）</option>`;
+  }).join('');
+}
+function setMode(m){
+  mode=m;
+  document.getElementById('segIn').classList.toggle('active',m==='in');
+  document.getElementById('segOut').classList.toggle('active',m==='out');
+  document.getElementById('formTitle').textContent = m==='in'?'进货登记':'出库登记';
+  document.getElementById('fPriceLabel').textContent = m==='in'?'进价（元/件）':'实际成交价（元/件）';
+  document.getElementById('saveBtn').textContent = m==='in'?'确认入库':'确认出库';
+  document.getElementById('saveBtn').classList.toggle('out',m==='out');
+  document.getElementById('tipLine').textContent = m==='in'?'同一款式不同颜色请分开录入，方便单独看哪个色好卖。':'只能从已有库存中选择款式出库。';
+  const sup=document.getElementById('supplierField');
+  const nmf=document.getElementById('nameField');
+  const opf=document.getElementById('outPickField');
+  if(m==='in'){
+    sup.style.display=''; nmf.style.display=''; opf.style.display='none';
+  } else {
+    sup.style.display='none'; nmf.style.display='none'; opf.style.display='';
+    fillOutPick();
+  }
+  document.getElementById('fColor').value='';
+  document.getElementById('fPrice').value='';
+  document.getElementById('fQty').value='';
+  updateOutCostHint();
+}
+document.getElementById('segIn').addEventListener('click',()=>setMode('in'));
+document.getElementById('segOut').addEventListener('click',()=>setMode('out'));
+document.getElementById('saveBtn').addEventListener('click',saveRecord);
+
+/* 出库时：显示选中款式的进价提示 */
+function updateOutCostHint(){
+  const sel=document.getElementById('fOutPick');
+  const opt=sel.options[sel.selectedIndex];
+  const hint=document.getElementById('outCostHint');
+  if(!hint) return;
+  if(mode==='out' && opt && opt.value){
+    const cost=Number(opt.dataset.cost)||0, stock=Number(opt.dataset.stock)||0;
+    hint.style.display='block';
+    hint.textContent='该款式进价 ¥'+fmt(cost)+'/件 · 库存 '+stock+' 件';
+  } else {
+    hint.style.display='none';
+  }
+}
+document.getElementById('fOutPick').addEventListener('change',updateOutCostHint);
+
+function saveRecord(){
+  const date=document.getElementById('fDate').value || todayStr();
+  const qty=Math.floor(Number(document.getElementById('fQty').value)||0);
+  const price=Number(document.getElementById('fPrice').value)||0;
+  const note=document.getElementById('fNote').value.trim();
+  if(qty<=0){ toast('请填写正确的数量'); return; }
+
+  let name,color,rec;
+  if(mode==='in'){
+    name=document.getElementById('fName').value.trim();
+    color=document.getElementById('fColor').value.trim();
+    if(!name){ toast('请填写款式名称'); return; }
+    if(price<=0){ toast('请填写进价'); return; }
+    const supplier=document.getElementById('fSupplier').value.trim();
+    rec={ id:uid(), type:'in', date, name, color, price, supplier, note, qty, ts:Date.now() };
+  } else {
+    const sel=document.getElementById('fOutPick');
+    const opt=sel.options[sel.selectedIndex];
+    if(!opt || !opt.value){ toast('请选择要出库的款式'); return; }
+    if(price<=0){ toast('请填写实际成交价'); return; }
+    const parts=opt.value.split('|');
+    name=parts[0]; color=parts[1]||'';
+    const cost=Number(opt.dataset.cost)||0;
+    const avail=Number(opt.dataset.stock)||0;
+    if(qty>avail){ toast('库存不足，当前仅 '+avail+' 件'); return; }
+    rec={ id:uid(), type:'out', date, name, color, price, cost, note, qty, ts:Date.now() };
+  }
+
+  db.records.push(rec);
+  cache();
+  if(autoSave) saveLedgerFile(true);
+  refresh();
+  toast(mode==='in'?'已入库 '+qty+' 件':'已出库 '+qty+' 件');
+
+  // 清空表单（保留款式方便连记）
+  document.getElementById('fQty').value='';
+  document.getElementById('fPrice').value='';
+  document.getElementById('fNote').value='';
+  if(mode==='in'){ document.getElementById('fColor').value=''; document.getElementById('fSupplier').value=''; }
+}
+
+/* ---------- 搜索 ---------- */
+document.getElementById('stockSearch').addEventListener('input',e=>{ stockQuery=e.target.value; renderStock(); });
+
+/* ---------- 库存项：修改 / 删除 ---------- */
+let curSku=null;
+const skuMask=document.getElementById('skuMask');
+function openSkuEdit(sku){
+  curSku=sku;
+  const [name,color]=sku.split('|');
+  const s=stockBySku().find(x=>(x.name+'|'+x.color)===sku);
+  document.getElementById('skuTitle').textContent = color? name+' · '+color : name;
+  document.getElementById('skuSub').textContent = '修改进价会同步到该款所有历史记录，用于重新计算盈利';
+  document.getElementById('skuStock').textContent = s?s.qty:0;
+  document.getElementById('skuCost').textContent = '¥'+fmt(s?s.lastIn:0);
+  document.getElementById('skuNewCost').value = '';
+  skuMask.classList.add('open');
+}
+function closeSku(){ skuMask.classList.remove('open'); curSku=null; }
+document.getElementById('skuCancel').addEventListener('click',closeSku);
+document.getElementById('skuMask').addEventListener('click',e=>{ if(e.target===skuMask) closeSku(); });
+document.getElementById('skuSaveCost').addEventListener('click',()=>{
+  if(!curSku) return;
+  const v=Number(document.getElementById('skuNewCost').value);
+  if(!(v>0)){ toast('请输入正确的进价'); return; }
+  const [name,color]=curSku.split('|');
+  let changed=0;
+  db.records.forEach(r=>{
+    if(r.name===name && (r.color||'')===(color||'')){
+      if(r.type==='in'){ r.price=v; changed++; }
+      else { r.cost=v; }
+    }
+  });
+  if(!changed){ toast('未找到该款入库记录'); return; }
+  cache();
+  if(autoSave) saveLedgerFile(true);
+  closeSku(); refresh();
+  toast('已更新进价为 ¥'+fmt(v));
+});
+document.getElementById('skuDelete').addEventListener('click',()=>{
+  if(!curSku) return;
+  if(!confirm('确定删除该商品吗？将同时删除它的全部入库和出库记录，且不可恢复。建议先导出备份。')) return;
+  const [name,color]=curSku.split('|');
+  const before=db.records.length;
+  db.records = db.records.filter(r=> !(r.name===name && (r.color||'')===(color||'')));
+  cache();
+  if(autoSave) saveLedgerFile(true);
+  closeSku(); refresh();
+  toast('已删除该商品（删除 '+ (before-db.records.length) +' 条记录）');
+});
+
+/* ---------- 报表：账本文件与备份 ---------- */
+document.getElementById('saveFileBtn').addEventListener('click',()=>saveLedgerFile(false));
+document.getElementById('autoSave').addEventListener('change',e=>{ autoSave=e.target.checked; localStorage.setItem('fashion_autosave',autoSave?'1':'0'); toast(autoSave?'已开启自动保存':'已关闭自动保存'); });
+document.getElementById('copyBtn').addEventListener('click',()=>{
+  const txt=JSON.stringify(db,null,2);
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>toast('已复制到剪贴板')).catch(()=>fallbackCopy(txt)); }
+  else fallbackCopy(txt);
+});
+function fallbackCopy(txt){
+  const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('已复制到剪贴板'); }catch(e){ toast('复制失败'); }
+  ta.remove();
+}
+document.getElementById('restoreBtn').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    if(!confirm('导入将覆盖当前全部数据，确定继续？')){ e.target.value=''; return; }
+    try{
+      const ext=(f.name||'').split('.').pop().toLowerCase();
+      let data=null;
+      if(ext==='xlsx'||ext==='xls'){
+        data=parseExcelLedger(ev.target.result);
+      } else {
+        const text=(typeof ev.target.result==='string')?ev.target.result:new TextDecoder('utf-8').decode(ev.target.result);
+        const m=text.match(/id="EMBEDDED_DATA"[^>]*>([\s\S]*?)<\/script>/);
+        if(m){ data=JSON.parse(m[1]); }
+        else { data=JSON.parse(text); if(data.db) data=data.db; }
+        if(!data||!Array.isArray(data.records)) throw new Error('bad');
+      }
+      db={records:data.records}; cache(); refresh();
+      toast('已恢复 '+db.records.length+' 条记录');
+    }catch(err){ toast('文件不是有效的账本备份'); }
+    e.target.value='';
+  };
+  if((f.name||'').split('.').pop().toLowerCase()==='xlsx'||(f.name||'').split('.').pop().toLowerCase()==='xls'){
+    reader.readAsArrayBuffer(f);
+  } else {
+    reader.readAsText(f);
+  }
+});
+/* 从 Excel 账本解析出记录 */
+function parseExcelLedger(buf){
+  if(typeof XLSX==='undefined') throw new Error('no-xlsx');
+  const wb=XLSX.read(buf,{type:'array'});
+  const ws=wb.Sheets['出入库流水']||wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  const records=[];
+  let ts=Date.now()-rows.length*1000;
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r || !r[0]) continue;
+    const date=String(r[0]||'').trim();
+    const typeRaw=String(r[1]||'').trim();
+    const type=typeRaw.indexOf('入')>=0?'in':'out';
+    const name=String(r[2]||'').trim();
+    if(!name) continue;
+    const color=String(r[3]||'').trim();
+    const qty=Number(r[4])||0;
+    const price=Number(r[5])||0;
+    if(qty<=0) continue;
+    const rec={ id:uid(), type, date, name, color, price, qty, ts };
+    if(type==='out'){ rec.cost=Number(r[6])||0; }
+    const supplier=String(r[7]||'').trim(); if(supplier) rec.supplier=supplier;
+    const note=String(r[8]||'').trim(); if(note) rec.note=note;
+    records.push(rec);
+    ts+=1000;
+  }
+  if(!records.length) throw new Error('no-records');
+  return {records};
+}
+document.getElementById('csvBtn').addEventListener('click',()=>{
+  try{
+    const rows=[['日期','类型','款式','颜色','数量','单价(元)','进价(元)','供应商/渠道','备注']];
+    [...db.records].sort((a,b)=>a.ts-b.ts).forEach(r=>{
+      rows.push([r.date, r.type==='in'?'入库':'出库', r.name, r.color||'', r.qty, r.price, r.type==='out'?(r.cost||''):'', r.supplier||'', r.note||'']);
+    });
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:8},{wch:18},{wch:10},{wch:8},{wch:10},{wch:10},{wch:16},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,'流水');
+    const d=new Date(); const p=x=>String(x).padStart(2,'0');
+    XLSX.writeFile(wb,'服装流水_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'.xlsx');
+    toast('流水 Excel 已导出');
+  }catch(e){ toast('导出失败：'+e.message); }
+});
+document.getElementById('jsonBtn').addEventListener('click',()=>{
+  const d=new Date(); const p=x=>String(x).padStart(2,'0');
+  download('服装数据备份_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'.json', JSON.stringify(db,null,2), 'application/json');
+  toast('JSON 备份已导出');
+});
+
+/* ---------- 初始化 ---------- */
+function init(){
+  // 首次运行时补一个内嵌数据标签，让「账本本体」机制就位
+  if(!document.getElementById(EMBED_ID)){
+    const s=document.createElement('script');
+    s.id=EMBED_ID; s.type='application/json';
+    s.textContent='';
+    document.head.appendChild(s);
+  }
+  // 读取自动保存开关
+  try{ autoSave = localStorage.getItem('fashion_autosave')==='1'; document.getElementById('autoSave').checked=autoSave; }catch(e){}
+  load();
+  if(!document.getElementById('fDate').value) document.getElementById('fDate').value=todayStr();
+  setMode('in');
+  refresh();
+}
+init();
+</script>
+
+<script>
+if("serviceWorker" in navigator && location.protocol === "https:"){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").then(function(){
+      var t = document.getElementById("offlineTip");
+      if(t){ t.textContent = "已就绪：网址打不开时，也能从本机打开。"; t.style.color = "var(--good)"; }
+    }).catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
