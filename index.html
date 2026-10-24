@@ -165,7 +165,25 @@ input[type=file]{display:none}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input id="stockSearch" placeholder="搜款式名 / 颜色">
     </div>
+    <div style="padding:0 18px 8px;font-size:11px;color:var(--sub);line-height:1.6">卖完（库存为 0）的款式不在这里显示。要查它的入库记录，去底部「流水」页，那里能看到每一笔入库和出库，而且可以改、可以删。</div>
     <div class="list" id="stockList"></div>
+  </main>
+
+  <!-- ============ 流水页（全部入库 / 出库记录，可改可删） ============ -->
+  <main id="page-ledger" class="page">
+    <div class="form-wrap">
+      <div class="tabs-seg">
+        <button id="lgAll" class="active">全部</button>
+        <button id="lgIn">只看入库</button>
+        <button id="lgOut">只看出库</button>
+      </div>
+    </div>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="ledgerSearch" placeholder="搜款式名 / 颜色 / 供应商 / 备注">
+    </div>
+    <div class="recent-title">记录 <span class="count" id="ledgerCount"></span><span id="ledgerSum" style="font-weight:400;color:var(--sub);font-size:11px"></span></div>
+    <div class="list" id="ledgerList"></div>
   </main>
 
   <!-- ============ 记一笔页 ============ -->
@@ -262,6 +280,10 @@ input[type=file]{display:none}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       记一笔
     </button>
+    <button data-tab="ledger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      流水
+    </button>
     <button data-tab="report">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
       报表
@@ -284,6 +306,28 @@ input[type=file]{display:none}
       <button class="btn" id="skuSaveCost">保存进价</button>
       <button class="btn danger" id="skuDelete">删除该商品</button>
       <button class="btn ghost" id="skuCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 单条记录编辑弹层 -->
+  <div class="sheet-mask" id="recMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3 id="recTitle">编辑记录</h3>
+      <div class="sub" id="recSub"></div>
+      <div class="field"><label>日期</label><input type="date" id="rDate"></div>
+      <div class="field-row">
+        <div class="field"><label>款式名称</label><input type="text" id="rName"></div>
+        <div class="field"><label>颜色</label><input type="text" id="rColor"></div>
+      </div>
+      <div class="field"><label>数量（件）</label><input type="number" id="rQty" inputmode="numeric"></div>
+      <div class="field"><label id="rPriceLabel">单价（元/件）</label><input type="number" id="rPrice" inputmode="decimal"></div>
+      <div class="field" id="rSupplierField"><label>供应商 / 进货渠道</label><input type="text" id="rSupplier"></div>
+      <div class="field"><label>备注</label><input type="text" id="rNote"></div>
+      <div class="field"><div class="hint" id="rStockHint" style="display:none"></div></div>
+      <button class="btn" id="recSave">保存修改</button>
+      <button class="btn danger" id="recDelete">删除这条记录</button>
+      <button class="btn ghost" id="recCancel">取消</button>
     </div>
   </div>
 </div>
@@ -410,6 +454,20 @@ function costOf(name,color){
   const s=stockBySku().find(x=>(x.name+'|'+x.color)===(name+'|'+color));
   return s?s.lastIn:0;
 }
+/* 实时可用库存：按记录逐条算，可排除某条（编辑时用）。
+   出库校验一律用这个，不能用下拉框里的库存数字（那个会过时）。 */
+function availFor(name,color,excludeId){
+  const map={};
+  db.records.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{
+    if(excludeId && r.id===excludeId) return;
+    const k=skuOf(r);
+    if(!map[k]) map[k]={qty:0,lastIn:0};
+    if(r.type==='in'){ map[k].qty+=r.qty; map[k].lastIn=Number(r.price)||0; }
+    else { map[k].qty-=r.qty; }
+  });
+  const s=map[name+'|'+(color||'')];
+  return s?s.qty:0;
+}
 
 /* ---------- 渲染：库存页 ---------- */
 function renderStock(){
@@ -521,16 +579,129 @@ function renderReport(){
   }).join('');
 }
 
+/* ---------- 渲染：流水页（全部入库 / 出库记录） ---------- */
+let ledgerFilter='all', ledgerQuery='';
+function setLedgerFilter(f){
+  ledgerFilter=f;
+  document.getElementById('lgAll').classList.toggle('active',f==='all');
+  document.getElementById('lgIn').classList.toggle('active',f==='in');
+  document.getElementById('lgOut').classList.toggle('active',f==='out');
+  renderLedger();
+}
+document.getElementById('lgAll').addEventListener('click',()=>setLedgerFilter('all'));
+document.getElementById('lgIn').addEventListener('click',()=>setLedgerFilter('in'));
+document.getElementById('lgOut').addEventListener('click',()=>setLedgerFilter('out'));
+document.getElementById('ledgerSearch').addEventListener('input',e=>{ ledgerQuery=e.target.value; renderLedger(); });
+
+function renderLedger(){
+  const box=document.getElementById('ledgerList');
+  if(!box) return;
+  const q=ledgerQuery.trim().toLowerCase();
+  let list=[...db.records].sort((a,b)=>b.ts-a.ts);
+  if(ledgerFilter!=='all') list=list.filter(r=>r.type===ledgerFilter);
+  if(q) list=list.filter(r=>((r.name||'')+' '+(r.color||'')+' '+(r.supplier||'')+' '+(r.note||'')).toLowerCase().indexOf(q)>=0);
+  let inQty=0,outQty=0;
+  db.records.forEach(r=>{ if(r.type==='in') inQty+=r.qty; else outQty+=r.qty; });
+  document.getElementById('ledgerCount').textContent=list.length+' 条';
+  document.getElementById('ledgerSum').textContent='入库 '+inQty+' 件 · 出库 '+outQty+' 件';
+  if(!list.length){
+    box.innerHTML='<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></div>'+(q?'没有匹配的记录':'还没有记录，去「记一笔」录入')+'</div>';
+    return;
+  }
+  box.innerHTML=list.map(r=>{
+    const in_=r.type==='in';
+    const color=r.color?' · '+esc(r.color):'';
+    let meta;
+    if(in_){
+      meta=fmtDate(r.date)+' · 进价 ¥'+fmt(r.price)+(r.supplier?' · '+esc(r.supplier):'')+(r.note?' · '+esc(r.note):'');
+    } else {
+      const cost=Number(r.cost)||0, real=Number(r.price)||0;
+      const profit=(real-cost)*r.qty;
+      meta=fmtDate(r.date)+' · 成交 ¥'+fmt(real)+' · 进价 ¥'+fmt(cost)+' · 盈利 <b style="color:'+(profit>=0?'var(--good)':'var(--bad)')+'">'+(profit>=0?'+':'')+'¥'+fmt(profit)+'</b>'+(r.note?' · '+esc(r.note):'');
+    }
+    return '<div class="item" data-id="'+esc(r.id)+'" style="cursor:pointer">'+
+      '<div class="body"><div class="name">'+esc(r.name)+color+'</div><div class="meta">'+meta+'</div></div>'+
+      '<div class="right"><div class="stock" style="color:'+(in_?'var(--good)':'var(--bad)')+'">'+(in_?'+':'-')+r.qty+'</div><div class="cap">'+(in_?'入库':'出库')+'</div></div>'+
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd3de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>'+
+    '</div>';
+  }).join('');
+  box.querySelectorAll('.item[data-id]').forEach(el=>{
+    el.addEventListener('click',()=>openRecEdit(el.dataset.id));
+  });
+}
+
+/* ---------- 单条记录：查看 / 修改 / 删除 ---------- */
+let curRecId=null;
+const recMask=document.getElementById('recMask');
+function openRecEdit(id){
+  const r=db.records.find(x=>x.id===id);
+  if(!r) return;
+  curRecId=id;
+  const in_=r.type==='in';
+  document.getElementById('recTitle').textContent=(in_?'入库':'出库')+'记录 · '+(in_?'进货':'卖出');
+  document.getElementById('recSub').textContent=esc(r.name)+(r.color?' · '+esc(r.color):'')+'（点下面任意一项都能改）';
+  document.getElementById('rDate').value=r.date||'';
+  document.getElementById('rName').value=r.name||'';
+  document.getElementById('rColor').value=r.color||'';
+  document.getElementById('rQty').value=r.qty;
+  document.getElementById('rPrice').value=r.price;
+  document.getElementById('rPriceLabel').textContent=in_?'进价（元/件）':'实际成交价（元/件）';
+  document.getElementById('rSupplierField').style.display=in_?'':'none';
+  document.getElementById('rSupplier').value=r.supplier||'';
+  document.getElementById('rNote').value=r.note||'';
+  const hint=document.getElementById('rStockHint');
+  if(!in_){
+    const avail=availFor(r.name,r.color,r.id);
+    hint.style.display='block';
+    hint.textContent='该款式除本条外还有 '+avail+' 件，数量最多可改成 '+avail+' 件';
+  } else { hint.style.display='none'; }
+  recMask.classList.add('open');
+}
+function closeRec(){ recMask.classList.remove('open'); curRecId=null; }
+document.getElementById('recCancel').addEventListener('click',closeRec);
+document.getElementById('recMask').addEventListener('click',e=>{ if(e.target===recMask) closeRec(); });
+document.getElementById('recSave').addEventListener('click',()=>{
+  const r=db.records.find(x=>x.id===curRecId);
+  if(!r) return;
+  const date=document.getElementById('rDate').value||r.date||todayStr();
+  const qty=Math.floor(Number(document.getElementById('rQty').value)||0);
+  const price=Number(document.getElementById('rPrice').value)||0;
+  const name=document.getElementById('rName').value.trim();
+  const color=document.getElementById('rColor').value.trim();
+  const note=document.getElementById('rNote').value.trim();
+  if(!name){ toast('请填写款式名称'); return; }
+  if(qty<=0){ toast('数量要大于 0'); return; }
+  if(price<0){ toast('单价不能为负'); return; }
+  if(r.type==='out'){
+    const avail=availFor(name,color,r.id);
+    if(qty>avail){ toast('改不了：该款式最多还能出 '+avail+' 件'); return; }
+  }
+  r.date=date; r.qty=qty; r.price=price; r.name=name; r.color=color; r.note=note;
+  if(r.type==='in') r.supplier=document.getElementById('rSupplier').value.trim();
+  cache();
+  if(autoSave) saveLedgerFile(true);
+  closeRec(); refresh(); toast('已保存修改');
+});
+document.getElementById('recDelete').addEventListener('click',()=>{
+  const r=db.records.find(x=>x.id===curRecId);
+  if(!r) return;
+  if(!confirm('确定删除这条'+(r.type==='in'?'入库':'出库')+'记录吗？删掉就找不回来了。')) return;
+  db.records=db.records.filter(x=>x.id!==curRecId);
+  cache();
+  if(autoSave) saveLedgerFile(true);
+  closeRec(); refresh(); toast('已删除该记录');
+});
+
 /* ---------- 工具 ---------- */
 function fmt(n){ n=Number(n)||0; return (n%1===0)?n.toLocaleString('zh-CN'):n.toLocaleString('zh-CN',{maximumFractionDigits:2}); }
-function fmtDate(s){ const a=s.split('-'); return Number(a[1])+'月'+Number(a[2])+'日'; }
+function fmtDate(s){ if(!s) return '—'; const a=String(s).split('-'); return Number(a[1])+'月'+Number(a[2])+'日'; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
 function todayStr(){ const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
-function refresh(){ renderStock(); renderRecent(); renderReport(); }
+function refresh(){ renderStock(); renderRecent(); renderReport(); renderLedger(); if(mode==='out') fillOutPick(); }
 
 /* ---------- 页面切换 ---------- */
-const TITLES={stock:'库存',record:'记一笔',report:'报表'};
+const TITLES={stock:'库存',ledger:'流水',record:'记一笔',report:'报表'};
 function goto(tab){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+tab).classList.add('active');
@@ -616,9 +787,9 @@ function saveRecord(){
     if(price<=0){ toast('请填写实际成交价'); return; }
     const parts=opt.value.split('|');
     name=parts[0]; color=parts[1]||'';
-    const cost=Number(opt.dataset.cost)||0;
-    const avail=Number(opt.dataset.stock)||0;
+    const avail=availFor(name,color,null);
     if(qty>avail){ toast('库存不足，当前仅 '+avail+' 件'); return; }
+    const cost=costOf(name,color)||0;
     rec={ id:uid(), type:'out', date, name, color, price, cost, note, qty, ts:Date.now() };
   }
 
