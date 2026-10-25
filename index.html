@@ -56,6 +56,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 .tabs-seg{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:4px 0 16px}
 .tabs-seg button{flex:1;border:none;background:transparent;padding:10px;font-size:14px;font-weight:600;color:var(--sub);border-radius:10px;cursor:pointer}
 .tabs-seg button.active{background:var(--card);color:var(--brand);box-shadow:var(--shadow)}
+.tabs-seg.seg-sm{margin:0;padding:3px}
+.tabs-seg.seg-sm button{padding:9px 6px;font-size:13px}
 .form-h{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 12px}
 .field{margin-bottom:13px}
 .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-weight:600}
@@ -138,6 +140,29 @@ input[type=file]{display:none}
 .sheet .btn{width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;color:#fff;background:var(--brand)}
 .sheet .btn.danger{background:var(--bad)}
 .sheet .btn.ghost{background:var(--line);color:var(--ink)}
+/* 通用按钮（页面内使用） */
+.btn{width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;background:var(--brand);color:#fff;box-shadow:var(--shadow)}
+.btn.ghost{background:var(--line);color:var(--ink);box-shadow:none;width:auto;display:inline-block;padding:8px 14px;font-size:13px}
+.btn.danger{background:var(--bad);color:#fff}
+.btn.warn{background:var(--bad-soft);color:var(--bad);box-shadow:none}
+/* 仓库切换条 */
+.chip-bar{display:flex;gap:8px;padding:2px 18px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
+.chip-bar::-webkit-scrollbar{display:none}
+.chip{flex:none;white-space:nowrap;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;min-height:34px}
+.chip.active{background:var(--brand);border-color:var(--brand);color:#fff}
+.chip.add{border-style:dashed;color:var(--brand)}
+/* 往来：明细行 */
+.mini{background:var(--card);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mini .b{flex:1;min-width:0}
+.mini .t1{font-weight:700;font-size:14px}
+.mini .t2{font-size:12px;color:var(--sub);margin-top:2px}
+.mini .amt{font-size:15px;font-weight:800;flex:none}
+.mini .del{flex:none;border:none;background:var(--bad-soft);color:var(--bad);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.owe{color:var(--bad)} .clear{color:var(--good)}
+/* 引导建仓 */
+.guide{background:var(--brand-soft);border:1px solid #cddcff;border-radius:14px;margin:4px 18px 12px;padding:16px;text-align:center}
+.guide .gt{font-size:15px;font-weight:800;color:var(--brand-deep);margin-bottom:6px}
+.guide .gd{font-size:12px;color:#41527a;line-height:1.7;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -165,7 +190,8 @@ input[type=file]{display:none}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input id="stockSearch" placeholder="搜款式名 / 颜色">
     </div>
-    <div style="padding:0 18px 8px;font-size:11px;color:var(--sub);line-height:1.6">卖完（库存为 0）的款式不在这里显示。要查它的入库记录，去底部「流水」页，那里能看到每一笔入库和出库，而且可以改、可以删。</div>
+    <div id="whBar" class="chip-bar"></div>
+    <div style="padding:0 18px 8px;font-size:11px;color:var(--sub);line-height:1.6">上面一排可以切换仓库，看每个仓各剩多少。卖完（库存为 0）的款式不在这里显示，去底部「流水」页能查到它的入库出库记录，还能改能删。<b>点某一条款式</b>可以设置它「一包有多少件」，设了之后库存就按包显示。</div>
     <div class="list" id="stockList"></div>
   </main>
 
@@ -180,7 +206,7 @@ input[type=file]{display:none}
     </div>
     <div class="search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="ledgerSearch" placeholder="搜款式名 / 颜色 / 供应商 / 备注">
+      <input id="ledgerSearch" placeholder="搜款式 / 颜色 / 仓库 / 客户 / 备注">
     </div>
     <div class="recent-title">记录 <span class="count" id="ledgerCount"></span><span id="ledgerSum" style="font-weight:400;color:var(--sub);font-size:11px"></span></div>
     <div class="list" id="ledgerList"></div>
@@ -196,11 +222,28 @@ input[type=file]{display:none}
       <div class="form-h" id="formTitle">进货登记</div>
 
       <div class="field"><label>日期</label><input type="date" id="fDate"></div>
-      <div class="field"><label>数量（件）</label><input type="number" id="fQty" inputmode="numeric" placeholder="0"></div>
+
+      <div class="field" id="whField"><label>仓库</label><select id="fWh"></select></div>
+
       <div class="field" id="nameField"><label>款式名称</label><input type="text" id="fName" placeholder="如：醋酸缎面衬衫"></div>
       <div class="field" id="outPickField"><label>选择要出库的款式</label><select id="fOutPick"></select><div class="hint" id="outCostHint" style="display:none"></div></div>
-      <div class="field"><label>颜色</label><input type="text" id="fColor" placeholder="如：米白"></div>
-      <div class="field"><label id="fPriceLabel">进价（元/件）</label><input type="number" id="fPrice" inputmode="decimal" placeholder="0"></div>
+      <div class="field" id="colorField"><label>颜色</label><input type="text" id="fColor" placeholder="如：米白"></div>
+
+      <div class="field" id="ppbField"><label>每包多少件</label><input type="number" id="fPpb" inputmode="numeric" placeholder="如 100"><div class="hint" id="ppbHint" style="display:none"></div></div>
+
+      <div class="field" id="qtyModeField"><label>数量怎么填</label>
+        <div class="tabs-seg seg-sm"><button id="qmPiece" class="active">按件</button><button id="qmBag">按包</button><button id="qmHalf">半包</button></div>
+      </div>
+      <div class="field" id="bagsField"><label>包数</label><input type="number" id="fBags" inputmode="decimal" step="0.5" placeholder="如 2.5"><div class="hint" id="bagsHint" style="display:none"></div></div>
+      <div class="field" id="qtyField"><label>数量（件）</label><input type="number" id="fQty" inputmode="numeric" placeholder="0"><div class="hint" id="qtyHint" style="display:none"></div></div>
+
+      <div class="field" id="partyField"><label>卖给谁</label><select id="fParty"></select><div class="hint" id="partyHint" style="display:none"></div></div>
+
+      <div class="field" id="priceModeField"><label>价格怎么填</label>
+        <div class="tabs-seg seg-sm"><button id="pmPiece" class="active">元 / 件</button><button id="pmBag">元 / 包</button></div>
+      </div>
+      <div class="field"><label id="fPriceLabel">进价（元/件）</label><input type="number" id="fPrice" inputmode="decimal" placeholder="0"><div class="hint" id="priceHint" style="display:none"></div></div>
+
       <div class="field" id="supplierField">
         <label>供应商 / 进货渠道</label><input type="text" id="fSupplier" placeholder="选填，如：十三行 A107">
       </div>
@@ -211,6 +254,48 @@ input[type=file]{display:none}
     </div>
     <div class="recent-title">最近记录 <span class="count" id="recentCount"></span></div>
     <div class="list" id="recentList"></div>
+  </main>
+
+  <!-- ============ 往来页（客户按包 / 商铺按件，各自账单 + 分批回款） ============ -->
+  <main id="page-party" class="page">
+    <div id="partyListView">
+      <div class="form-wrap">
+        <div class="tabs-seg">
+          <button id="ptCustomer" class="active">客户（按包要货）</button>
+          <button id="ptShop">商铺（按件要货）</button>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="c brand"><div class="lab">应收合计</div><div class="val">¥<span id="pDueAll">0</span></div></div>
+        <div class="c white"><div class="lab">已收回</div><div class="val">¥<span id="pPaidAll">0</span></div></div>
+        <div class="c white"><div class="lab">还没收回</div><div class="val">¥<span id="pLeftAll">0</span></div></div>
+        <div class="c white"><div class="lab">对象数</div><div class="val"><span id="pCount">0</span><small>个</small></div></div>
+      </div>
+      <div class="recent-title">名单 <span class="count" id="partyCount"></span></div>
+      <div class="list" id="partyList"></div>
+      <div style="padding:4px 18px 20px"><button class="btn" id="addPartyBtn">+ 新增对象</button></div>
+    </div>
+
+    <div id="partyDetailView" style="display:none">
+      <div style="padding:14px 18px 4px"><button class="btn ghost" id="partyBack">← 返回名单</button></div>
+      <div class="cards">
+        <div class="c brand"><div class="lab">应收（出货合计）</div><div class="val">¥<span id="pdDue">0</span></div></div>
+        <div class="c white"><div class="lab">已收回</div><div class="val">¥<span id="pdPaid">0</span></div></div>
+        <div class="c white"><div class="lab">还没收回</div><div class="val">¥<span id="pdLeft">0</span></div></div>
+        <div class="c white"><div class="lab">拿货</div><div class="val"><span id="pdQty">0</span><small id="pdUnit">包</small></div></div>
+      </div>
+      <div class="section-h">出货明细</div>
+      <div class="list" id="pdOutList"></div>
+      <div class="section-h">回款明细 <span style="font-weight:400;color:var(--sub)">（分批、不限次数）</span></div>
+      <div class="list" id="pdPayList"></div>
+      <div style="padding:4px 18px 24px">
+        <button class="btn-primary" id="addPayBtn">记一笔回款</button>
+        <div style="height:8px"></div>
+        <button class="btn" id="renamePartyBtn">改名 / 备注</button>
+        <div style="height:8px"></div>
+        <button class="btn danger" id="delPartyBtn">删除该对象</button>
+      </div>
+    </div>
   </main>
 
   <!-- ============ 报表页 ============ -->
@@ -284,6 +369,10 @@ input[type=file]{display:none}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       流水
     </button>
+    <button data-tab="party">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      往来
+    </button>
     <button data-tab="report">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
       报表
@@ -302,7 +391,10 @@ input[type=file]{display:none}
         <div class="s"><div class="lab">当前库存</div><div class="val" id="skuStock">0</div></div>
         <div class="s"><div class="lab">当前进价</div><div class="val" id="skuCost">¥0</div></div>
       </div>
-      <div class="field"><label>修改进价（元/件）</label><input type="number" id="skuNewCost" inputmode="decimal" placeholder="新进价"></div>
+      <div class="field"><label>每包多少件</label><input type="number" id="skuPpb" inputmode="numeric" placeholder="如 100"><div class="hint">填了之后，这款的库存就按「包」显示</div></div>
+      <button class="btn" id="skuSavePpb">保存每包件数</button>
+      <div style="height:10px"></div>
+      <div class="field"><label>修改进价（元/件）</label><input type="number" id="skuNewCost" inputmode="decimal" placeholder="新进价"><div class="hint">只改<b id="skuWhEcho">这个仓库</b>里这款的入库进价</div></div>
       <button class="btn" id="skuSaveCost">保存进价</button>
       <button class="btn danger" id="skuDelete">删除该商品</button>
       <button class="btn ghost" id="skuCancel">取消</button>
@@ -316,10 +408,12 @@ input[type=file]{display:none}
       <h3 id="recTitle">编辑记录</h3>
       <div class="sub" id="recSub"></div>
       <div class="field"><label>日期</label><input type="date" id="rDate"></div>
+      <div class="field" id="rWhField"><label>仓库</label><select id="rWh"></select></div>
       <div class="field-row">
         <div class="field"><label>款式名称</label><input type="text" id="rName"></div>
         <div class="field"><label>颜色</label><input type="text" id="rColor"></div>
       </div>
+      <div class="field" id="rPartyField"><label>卖给谁</label><select id="rParty"></select></div>
       <div class="field"><label>数量（件）</label><input type="number" id="rQty" inputmode="numeric"></div>
       <div class="field"><label id="rPriceLabel">单价（元/件）</label><input type="number" id="rPrice" inputmode="decimal"></div>
       <div class="field" id="rSupplierField"><label>供应商 / 进货渠道</label><input type="text" id="rSupplier"></div>
@@ -332,20 +426,103 @@ input[type=file]{display:none}
   </div>
 </div>
 
+  <!-- 仓库：新建 / 改名 / 删除空仓 -->
+  <div class="sheet-mask" id="whMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3 id="whTitle">新建仓库</h3>
+      <div class="sub" id="whSub">货放在哪就建哪个仓，建好之后入库时就能选它</div>
+      <div class="field"><label>仓库名称</label><input type="text" id="whNameInput" placeholder="如：十三行档口"></div>
+      <button class="btn" id="whSave">保存</button>
+      <button class="btn danger" id="whDelete" style="display:none">删除该仓库</button>
+      <button class="btn ghost" id="whCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 往来对象：新增 / 改名 -->
+  <div class="sheet-mask" id="partyMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3 id="peTitle">新增客户</h3>
+      <div class="sub" id="peSub">客户按包要货，最少可以半包</div>
+      <div class="field"><label>名称</label><input type="text" id="peName" placeholder="如：王姐"></div>
+      <div class="field"><label>备注</label><input type="text" id="peNote" placeholder="选填，如：微信 xxx"></div>
+      <button class="btn" id="peSave">保存</button>
+      <button class="btn ghost" id="peCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 记一笔回款 -->
+  <div class="sheet-mask" id="payMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>记一笔回款</h3>
+      <div class="sub" id="paySub">分批、不定额都行，随时可以补记</div>
+      <div class="field"><label>日期</label><input type="date" id="payDate"></div>
+      <div class="field"><label>本次收回（元）</label><input type="number" id="payAmt" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>备注</label><input type="text" id="payNote" placeholder="选填，如：微信转账"></div>
+      <button class="btn" id="paySave">保存回款</button>
+      <button class="btn ghost" id="payCancel">取消</button>
+    </div>
+  </div>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script>if(typeof XLSX==="undefined"){var _s=document.createElement("script");_s.src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js";_s.async=false;document.head.appendChild(_s);}</script>
 <script>
-/* ================= 数据模型 =================
-  db.records[] 每条一笔：{id, type:'in'|'out', date, name, color,
-    price(进价/成交价), supplier, note, qty, ts}
-  SKU 键 = name + '|' + color（不同颜色分开算库存）
+/* ================= 数据模型 v3（全新，不与 v2 老数据兼容）=================
+  db = {
+    version: 3,
+    warehouses: [{id,name}],                      仓库，全部由你自己新建
+    ppb: { '款名|颜色': 每包件数 },                 每包件数，随时可改
+    parties: [{id, type:'customer'|'shop', name, note}],
+    payments: [{id, partyId, date, amount, note, ts}],
+    records: [{id, type:'in'|'out', date, name, color, price, cost,
+               supplier, note, qty, ts,
+               warehouseId, ppb, bags, partyType, partyId}]
+  }
+  库存键 = 仓库 + '||' + 款名 + '|' + 颜色（分仓 + 分色）
+  ★ 内部一律记「件」（整数）。包数只在输入和显示时换算，不进账。
   localStorage 作为快速恢复缓存；账本本体是 Excel 文件
-============================================ */
-const LS_KEY = 'fashion_ledger_v2';
-const EMBED_ID = 'EMBEDDED_DATA';
-let db = { records: [] };
+====================================================================== */
+const LS_KEY = 'fashion_ledger_v3';    // 全新键，与 v2 老数据彻底隔离
+const EMBED_ID = 'YIZHANG_DATA_V3';
+let db = null;
 let mode = 'in';
 let autoSave = false;
 let stockQuery = '';
+let curWh = 'all';          // 库存页筛选的仓库，'all' 为全部
+let partyTab = 'customer';  // 往来页分段
+let curPartyId = null;      // 当前打开的往来对象
+let qtyMode = 'piece';      // piece | bag | half  数量录入方式
+let priceMode = 'piece';    // piece | bag  单价录入方式
+
+/* 新建一套空账本 */
+function emptyDb(){
+  return { version:3, warehouses:[], ppb:{}, parties:[], payments:[], records:[] };
+}
+/* 结构校正：保证各字段类型正确（不补默认仓，缺仓库就是没有仓库） */
+function normalize(d){
+  if(!d || typeof d!=='object') d={};
+  const out=emptyDb();
+  out.records = Array.isArray(d.records)?d.records:[];
+  out.warehouses = Array.isArray(d.warehouses)?d.warehouses.filter(w=>w&&w.id):[];
+  out.ppb = (d.ppb && typeof d.ppb==='object' && !Array.isArray(d.ppb))?d.ppb:{};
+  out.parties = Array.isArray(d.parties)?d.parties.filter(p=>p&&p.id):[];
+  out.payments = Array.isArray(d.payments)?d.payments:[];
+  const wids={}; out.warehouses.forEach(w=>{ wids[w.id]=1; });
+  const pids={}; out.parties.forEach(p=>{ pids[p.id]=1; });
+  out.records.forEach(r=>{
+    if(!r.id) r.id=uid();
+    if(!r.ts) r.ts=Date.now();
+    r.qty=Math.max(0,Math.floor(Number(r.qty)||0));
+    if(!wids[r.warehouseId]) r.warehouseId='';   // 仓库被删掉的记录归为「未指定」
+    if(r.type==='out'){
+      if(r.partyType!=='customer' && r.partyType!=='shop'){ r.partyType='none'; r.partyId=''; }
+      if(r.partyId && !pids[r.partyId]){ r.partyType='none'; r.partyId=''; }
+    }
+  });
+  out.payments=out.payments.filter(p=>p && pids[p.partyId]);
+  return out;
+}
 
 /* ---------- 存取 ---------- */
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -353,11 +530,11 @@ function load(){
   // 1) 优先读 HTML 内嵌数据（账本本体，随文件走）
   try{
     const el = document.getElementById(EMBED_ID);
-    if(el && el.textContent){ const d=JSON.parse(el.textContent); if(d && Array.isArray(d.records)){ db=d; return; } }
+    if(el && el.textContent){ const d=JSON.parse(el.textContent); if(d && Array.isArray(d.records)){ db=normalize(d); return; } }
   }catch(e){}
   // 2) 其次读浏览器缓存
-  try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const d=JSON.parse(raw); if(d&&Array.isArray(d.records)){ db=d; return; } } }catch(e){}
-  db={records:[]};
+  try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const d=JSON.parse(raw); if(d&&Array.isArray(d.records)){ db=normalize(d); return; } } }catch(e){}
+  db=normalize({records:[]});
 }
 function cache(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(db)); }catch(e){} }
 
@@ -369,7 +546,7 @@ function buildLedgerHTML(){
   // 把 script 里的 load 数据回写：给 EMBED 脚本标签填内容
   const embed = '<script id="'+EMBED_ID+'" type="application/json">'+payload+'<'+'/script>';
   if(html.indexOf(marker)>=0){
-    html = html.replace(/<script id="EMBEDDED_DATA" type="application\/json">[\s\S]*?<\/script>/, embed);
+    html = html.replace(new RegExp('<script id="'+EMBED_ID+'" type="application/json">[\\s\\S]*?<'+'/script>'), embed);
   } else {
     html = html.replace('<head>', '<head>\n'+embed);
   }
@@ -390,32 +567,88 @@ function todayStamp(){
 function buildLedgerWorkbook(){
   if(typeof XLSX==='undefined') throw new Error('Excel 组件未加载，请检查网络后重试');
   const wb = XLSX.utils.book_new();
+  const sorted=[...db.records].sort((a,b)=>a.ts-b.ts);
+  const r2=n=>Math.round((Number(n)||0)*100)/100;
+
   // 表1：出入库流水
-  const rows=[['日期','类型','款式','颜色','数量','单价(元)','进价(元)','供应商/渠道','备注']];
-  [...db.records].sort((a,b)=>a.ts-b.ts).forEach(r=>{
-    rows.push([r.date, r.type==='in'?'入库':'出库', r.name, r.color||'', r.qty, r.price, r.type==='out'?(r.cost||''):'', r.supplier||'', r.note||'']);
+  const rows=[['日期','类型','仓库','款式','颜色','件数','包数','每包件数','单价(元/件)','进价(元/件)','供应商/渠道','客户/商铺','备注']];
+  sorted.forEach(r=>{
+    rows.push([
+      r.date, r.type==='in'?'入库':'出库',
+      whName(r.warehouseId)||'未指定',
+      r.name, r.color||'', r.qty,
+      (Number(r.bags)||0)?r2(r.bags):'',
+      (Number(r.ppb)||0)||'',
+      r.price,
+      r.type==='out'?(r.cost||''):'',
+      r.supplier||'',
+      (r.type==='out'&&r.partyId)?(partyName(r.partyId)||''):'',
+      r.note||''
+    ]);
   });
   const ws1=XLSX.utils.aoa_to_sheet(rows);
-  ws1['!cols']=[{wch:12},{wch:8},{wch:18},{wch:10},{wch:8},{wch:10},{wch:10},{wch:16},{wch:14}];
+  ws1['!cols']=[{wch:12},{wch:8},{wch:14},{wch:18},{wch:10},{wch:8},{wch:8},{wch:10},{wch:12},{wch:12},{wch:16},{wch:14},{wch:18}];
   XLSX.utils.book_append_sheet(wb,ws1,'出入库流水');
-  // 表2：库存汇总
-  const stocks=stockBySku().filter(s=>s.qty>0);
-  const srows=[['款式','颜色','在库件数','进价(元)','库存成本(元)']];
+
+  // 表2：库存汇总（分仓）
+  const stocks=stockByLoc().filter(s=>s.qty>0);
+  const srows=[['仓库','款式','颜色','在库件数','在库包数','每包件数','进价(元)','库存成本(元)']];
   let sCost=0;
-  stocks.forEach(s=>{ srows.push([s.name,s.color||'',s.qty,s.lastIn,s.qty*s.lastIn]); sCost+=s.qty*s.lastIn; });
-  srows.push(['','合计','','',sCost]);
+  stocks.forEach(s=>{
+    const ppb=ppbOf(s.name,s.color);
+    srows.push([whName(s.whId)||'未指定', s.name, s.color||'', s.qty,
+      ppb>0?r2(bagsOf(s.qty,ppb)):'', ppb>0?ppb:'', s.lastIn, s.qty*s.lastIn]);
+    sCost+=s.qty*s.lastIn;
+  });
+  srows.push(['','合计','','','','','',sCost]);
   const ws2=XLSX.utils.aoa_to_sheet(srows);
-  ws2['!cols']=[{wch:18},{wch:10},{wch:10},{wch:10},{wch:12}];
+  ws2['!cols']=[{wch:14},{wch:18},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12}];
   XLSX.utils.book_append_sheet(wb,ws2,'库存汇总');
-  // 表3：总览
-  let sold=0,soldAmt=0,realized=0,spend=0;
+
+  // 表3 / 表4：客户对账、商铺对账
+  [['customer','客户对账','包'],['shop','商铺对账','件']].forEach(function(cfg){
+    const type=cfg[0], title=cfg[1], unit=cfg[2];
+    const list=db.parties.filter(p=>p.type===type);
+    const prows=[['名称','备注','拿货('+unit+')','应收(元)','已收(元)','未收(元)']];
+    let d=0,pd=0;
+    list.forEach(p=>{
+      const b=partyBill(p.id);
+      const got=(type==='customer')?r2(b.bags):b.qty;
+      prows.push([p.name,p.note||'',got,r2(b.due),r2(b.paid),r2(b.left)]);
+      d+=b.due; pd+=b.paid;
+    });
+    prows.push(['合计','','',r2(d),r2(pd),r2(d-pd)]);
+    const wsp=XLSX.utils.aoa_to_sheet(prows);
+    wsp['!cols']=[{wch:16},{wch:18},{wch:12},{wch:12},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,wsp,title);
+  });
+
+  // 表5：回款明细
+  const yrows=[['日期','对象','类型','金额(元)','备注']];
+  [...db.payments].sort((a,b)=>b.ts-a.ts).forEach(p=>{
+    const obj=db.parties.find(x=>x.id===p.partyId);
+    yrows.push([p.date, obj?obj.name:'', obj?(obj.type==='customer'?'客户':'商铺'):'', p.amount, p.note||'']);
+  });
+  const wsy=XLSX.utils.aoa_to_sheet(yrows);
+  wsy['!cols']=[{wch:12},{wch:16},{wch:8},{wch:12},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,wsy,'回款明细');
+
+  // 表6：总览
+  let sold=0,soldAmt=0,realized=0,spend=0,dueAll=0,paidAll=0;
   db.records.forEach(r=>{
     if(r.type==='in'){ spend+=(Number(r.price)||0)*r.qty; }
     else { sold+=r.qty; const amt=(Number(r.price)||0)*r.qty; soldAmt+=amt; realized+=amt-((Number(r.cost)||0)*r.qty); }
   });
-  const orows=[['指标','数值'],['已卖出(件)',sold],['已售金额(元)',soldAmt],['累计进货支出(元)',spend],['回款率(%)',spend>0?Math.round(soldAmt/spend*100):0],['已实现盈亏(元)',realized],['库存成本(元)',sCost],['导出时间',new Date().toLocaleString()]];
+  db.parties.forEach(p=>{ const b=partyBill(p.id); dueAll+=b.due; paidAll+=b.paid; });
+  const orows=[['指标','数值'],
+    ['已卖出(件)',sold],['已售金额(元)',soldAmt],['累计进货支出(元)',spend],
+    ['回款率(%)',spend>0?Math.round(soldAmt/spend*100):0],
+    ['已实现盈亏(元)',realized],['库存成本(元)',sCost],
+    ['应收合计(元)',r2(dueAll)],['已收回(元)',r2(paidAll)],['未收回(元)',r2(dueAll-paidAll)],
+    ['仓库数',db.warehouses.length],
+    ['导出时间',new Date().toLocaleString()]];
   const ws3=XLSX.utils.aoa_to_sheet(orows);
-  ws3['!cols']=[{wch:18},{wch:16}];
+  ws3['!cols']=[{wch:20},{wch:18}];
   XLSX.utils.book_append_sheet(wb,ws3,'总览');
   return wb;
 }
@@ -430,79 +663,145 @@ function saveLedgerExcel(silent){
 function saveLedgerFile(silent){ saveLedgerExcel(silent); }
 
 /* ---------- 计算 ---------- */
-function skuOf(r){ return r.name+'|'+r.color; }
-/* 返回所有 SKU：当前库存、进价(取最近入库)、成本 */
-function stockBySku(){
-  const map={};
-  const order=[];
+function skuOf(r){ return (r.name||'')+'|'+(r.color||''); }
+function locOf(r){ return (r.warehouseId||'')+'||'+skuOf(r); }
+function whName(id){ const w=db.warehouses.find(x=>x.id===id); return w?w.name:''; }
+
+/* 每包件数：按「款|色」记，没设过返回 0 */
+function ppbOf(name,color){
+  const v=Number(db.ppb[(name||'')+'|'+(color||'')]);
+  return v>0?Math.floor(v):0;
+}
+function setPpb(name,color,v){
+  const k=(name||'')+'|'+(color||'');
+  v=Math.floor(Number(v)||0);
+  if(v>0) db.ppb[k]=v; else delete db.ppb[k];
+}
+/* 件数 → 包数；包数显示保留两位小数（如 9.8 包） */
+function bagsOf(qty,ppb){ return (ppb>0)?(qty/ppb):0; }
+function fmtBags(n){ return (Math.round(n*100)/100).toLocaleString('zh-CN',{maximumFractionDigits:2}); }
+
+/* 分仓库存：仓库 × 款 × 色。返回 [{whId,name,color,key,qty,cost,lastIn}] */
+function stockByLoc(){
+  const map={}, order=[];
   db.records.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{
-    const k=skuOf(r);
-    if(!map[k]){ map[k]={name:r.name,color:r.color,qty:0,cost:0,lastIn:0}; order.push(k); }
+    const k=locOf(r);
+    if(!map[k]){ map[k]={whId:r.warehouseId||'',name:r.name,color:r.color||'',key:k,qty:0,cost:0,lastIn:0}; order.push(k); }
+    const s=map[k];
     if(r.type==='in'){
-      map[k].qty += r.qty;
-      map[k].cost += (Number(r.price)||0)*r.qty;
-      map[k].lastIn = Number(r.price)||0;
+      s.qty += r.qty;
+      s.cost += (Number(r.price)||0)*r.qty;
+      s.lastIn = Number(r.price)||0;
     } else {
-      map[k].qty -= r.qty;
-      map[k].cost -= (Number(r.cost)||map[k].lastIn||0)*r.qty;
+      s.qty -= r.qty;
+      s.cost -= (Number(r.cost)||s.lastIn||0)*r.qty;
     }
   });
   return order.map(k=>map[k]);
 }
-/* 取某 SKU 当前进价（最近入库价），无则返回 0 */
-function costOf(name,color){
-  const s=stockBySku().find(x=>(x.name+'|'+x.color)===(name+'|'+color));
+/* 某仓某款当前进价（该仓最近一次入库价） */
+function costAt(whId,name,color){
+  const s=stockByLoc().find(x=>x.whId===(whId||'') && x.name===(name||'') && x.color===(color||''));
   return s?s.lastIn:0;
 }
-/* 实时可用库存：按记录逐条算，可排除某条（编辑时用）。
-   出库校验一律用这个，不能用下拉框里的库存数字（那个会过时）。 */
-function availFor(name,color,excludeId){
-  const map={};
+/* 某仓某款实时可用库存：逐条重算，可排除某条（编辑时用）。
+   出库校验一律用这个，绝不能用下拉框里缓存的数字（那个会过时）。 */
+function availAt(whId,name,color,excludeId){
+  let qty=0;
   db.records.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{
     if(excludeId && r.id===excludeId) return;
-    const k=skuOf(r);
-    if(!map[k]) map[k]={qty:0,lastIn:0};
-    if(r.type==='in'){ map[k].qty+=r.qty; map[k].lastIn=Number(r.price)||0; }
-    else { map[k].qty-=r.qty; }
+    if((r.warehouseId||'')!==(whId||'')) return;
+    if((r.name||'')!==(name||'')) return;
+    if((r.color||'')!==(color||'')) return;
+    if(r.type==='in') qty+=r.qty; else qty-=r.qty;
   });
-  const s=map[name+'|'+(color||'')];
-  return s?s.qty:0;
+  return qty;
+}
+/* 往来：某对象的应收 / 已收 / 余额 / 拿货量（bags 逐笔累加，不受每包件数不同影响） */
+function partyBill(pid){
+  let due=0, paid=0, qty=0, bags=0;
+  db.records.forEach(r=>{
+    if(r.type==='out' && r.partyType!=='none' && r.partyId===pid){
+      due += (Number(r.price)||0)*r.qty;
+      qty += r.qty;
+      bags += Number(r.bags)||0;
+    }
+  });
+  db.payments.forEach(p=>{ if(p.partyId===pid) paid += Number(p.amount)||0; });
+  return { due, paid, left: due-paid, qty, bags };
+}
+
+/* ---------- 渲染：仓库切换条 ---------- */
+function renderWhBar(){
+  const bar=document.getElementById('whBar');
+  if(!bar) return;
+  const chips=['<button class="chip'+(curWh==='all'?' active':'')+'" data-wh="all">全部仓库</button>'];
+  db.warehouses.forEach(w=>{
+    chips.push('<button class="chip'+(curWh===w.id?' active':'')+'" data-wh="'+esc(w.id)+'">'+esc(w.name)+'</button>');
+  });
+  chips.push('<button class="chip add" data-wh="__new">+ 新建仓库</button>');
+  bar.innerHTML=chips.join('');
+  bar.querySelectorAll('.chip').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const v=b.dataset.wh;
+      if(v==='__new'){ openWhEdit(null); return; }
+      curWh=v; renderStock();
+    });
+  });
 }
 
 /* ---------- 渲染：库存页 ---------- */
 function renderStock(){
-  const stocks=stockBySku();
-  let cost=0,qty=0,soldAmt=0,skus=0;
+  renderWhBar();
+  const stocks=stockByLoc();
   const q=stockQuery.trim().toLowerCase();
-  const filtered=stocks.filter(s=>{
+  const scoped = (curWh==='all') ? stocks : stocks.filter(s=>s.whId===curWh);
+  const filtered=scoped.filter(s=>{
     if(s.qty<=0) return false;
     if(!q) return true;
-    return (s.name+' '+s.color).toLowerCase().includes(q);
+    return (s.name+' '+s.color).toLowerCase().indexOf(q)>=0;
   });
-  stocks.forEach(s=>{ if(s.qty<=0) return; cost+=s.qty*s.lastIn; qty+=s.qty; skus++; });
-  db.records.forEach(r=>{ if(r.type==='out') soldAmt+=(Number(r.price)||0)*r.qty; });
+  let cost=0,qty=0,soldAmt=0,skus=0;
+  scoped.forEach(s=>{ if(s.qty<=0) return; cost+=s.qty*s.lastIn; qty+=s.qty; skus++; });
+  db.records.forEach(r=>{
+    if(r.type!=='out') return;
+    if(curWh!=='all' && (r.warehouseId||'')!==curWh) return;
+    soldAmt+=(Number(r.price)||0)*r.qty;
+  });
   document.getElementById('kCost').textContent=fmt(cost);
   document.getElementById('kQty').textContent=qty;
   document.getElementById('kSoldAmt').textContent=fmt(soldAmt);
   document.getElementById('kSku').textContent=skus;
   const box=document.getElementById('stockList');
+  if(!db.warehouses.length){
+    box.innerHTML='<div class="guide"><div class="gt">先建一个仓库</div><div class="gd">你还没有任何仓库。货放在哪就建哪个仓，比如「十三行档口」「家里」。<br>建好之后才能入库记账。</div><button class="btn" id="guideWhBtn" style="max-width:220px;margin:0 auto">+ 新建仓库</button></div>';
+    const g=document.getElementById('guideWhBtn');
+    if(g) g.addEventListener('click',()=>openWhEdit(null));
+    return;
+  }
   if(!filtered.length){
-    box.innerHTML=`<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23Z"/></svg></div>${q?'没有匹配的商品':'还没有库存'}<br>${q?'换个关键词试试':'点右上角「记一笔」入库'}</div>`;
+    box.innerHTML=`<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23Z"/></svg></div>${q?'没有匹配的商品':'这个仓库还没有货'}<br>${q?'换个关键词试试':'点右上角「记一笔」入库'}</div>`;
     return;
   }
   box.innerHTML=filtered.map(s=>{
-    return `<div class="item" data-sku="${esc(skuOf(s))}" style="cursor:pointer">
+    const ppb=ppbOf(s.name,s.color);
+    const wh=whName(s.whId);
+    const whTag=(curWh==='all'&&wh)?'<span style="background:var(--brand-soft);color:var(--brand-deep);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700;margin-right:5px">'+esc(wh)+'</span>':'';
+    const meta2 = ppb>0 ? ('每包 '+ppb+' 件') : '点这里设置每包件数';
+    const main = ppb>0 ? fmtBags(bagsOf(s.qty,ppb)) : fmt(s.qty);
+    const unit = ppb>0 ? '包' : '件';
+    const sub  = ppb>0 ? (fmt(s.qty)+' 件') : '';
+    return `<div class="item" data-loc="${esc(s.key)}" style="cursor:pointer">
       <div class="body">
-        <div class="name">${esc(s.name)}${s.color?' <span style="color:var(--sub);font-weight:500">· '+esc(s.color)+'</span>':''}</div>
-        <div class="meta">进价 ¥${fmt(s.lastIn)}/件</div>
+        <div class="name">${whTag}${esc(s.name)}${s.color?' <span style="color:var(--sub);font-weight:500">· '+esc(s.color)+'</span>':''}</div>
+        <div class="meta">进价 ¥${fmt(s.lastIn)}/件 · ${meta2}</div>
       </div>
-      <div class="right"><div class="stock">${s.qty}</div><div class="cap">在库件数</div></div>
+      <div class="right"><div class="stock">${main}</div><div class="cap">${unit}${sub?' · '+sub:''}</div></div>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd3de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
     </div>`;
   }).join('');
-  // 点击商品弹编辑
-  box.querySelectorAll('.item[data-sku]').forEach(el=>{
-    el.addEventListener('click',()=>openSkuEdit(el.dataset.sku));
+  box.querySelectorAll('.item[data-loc]').forEach(el=>{
+    el.addEventListener('click',()=>openSkuEdit(el.dataset.loc));
   });
 }
 
@@ -515,12 +814,15 @@ function renderRecent(){
   box.innerHTML=recent.map(r=>{
     const in_=r.type==='in';
     const color=r.color?' · '+esc(r.color):'';
+    const wh=r.warehouseId?esc(whName(r.warehouseId)):'未指定仓';
+    const bagTxt=(Number(r.bags)||0)>0?(' · '+fmtBags(Number(r.bags))+' 包'):'';
     let meta;
-    if(in_) meta=`${fmtDate(r.date)} · 入 ${r.qty} 件 @ ¥${fmt(r.price)}${r.supplier?' · '+esc(r.supplier):''}`;
+    if(in_) meta=`${fmtDate(r.date)} · ${wh} · 入 ${r.qty} 件${bagTxt} @ ¥${fmt(r.price)}${r.supplier?' · '+esc(r.supplier):''}`;
     else {
       const cost=Number(r.cost)||0, real=Number(r.price)||0;
       const profit=(real-cost)*r.qty;
-      meta=`${fmtDate(r.date)} · 出 ${r.qty} 件 · 成交 ¥${fmt(real)}/件 · 进价 ¥${fmt(cost)} · 盈利 <b style="color:${profit>=0?'var(--good)':'var(--bad)'}">${profit>=0?'+':''}¥${fmt(profit)}</b>`;
+      const who=r.partyId?(' · 给 '+esc(partyName(r.partyId))):' · 散客';
+      meta=`${fmtDate(r.date)} · ${wh} · 出 ${r.qty} 件${bagTxt} · 成交 ¥${fmt(real)}/件${who} · 盈利 <b style="color:${profit>=0?'var(--good)':'var(--bad)'}">${profit>=0?'+':''}¥${fmt(profit)}</b>`;
     }
     return `<div class="item">
       <div class="body">
@@ -535,7 +837,7 @@ function renderRecent(){
 /* ---------- 渲染：报表页 ---------- */
 function renderReport(){
   let sold=0, soldAmt=0, realized=0, spend=0, inCost=0, inQty=0, profit=0;
-  const stocks=stockBySku();
+  const stocks=stockByLoc();
   stocks.forEach(s=>{ if(s.qty<=0) return; inCost+=s.qty*s.lastIn; inQty+=s.qty; });
   const byMonth={};
   db.records.forEach(r=>{
@@ -599,7 +901,11 @@ function renderLedger(){
   const q=ledgerQuery.trim().toLowerCase();
   let list=[...db.records].sort((a,b)=>b.ts-a.ts);
   if(ledgerFilter!=='all') list=list.filter(r=>r.type===ledgerFilter);
-  if(q) list=list.filter(r=>((r.name||'')+' '+(r.color||'')+' '+(r.supplier||'')+' '+(r.note||'')).toLowerCase().indexOf(q)>=0);
+  if(q) list=list.filter(r=>{
+    const hay=((r.name||'')+' '+(r.color||'')+' '+(r.supplier||'')+' '+(r.note||'')+' '+
+               (whName(r.warehouseId)||'')+' '+((r.partyId&&partyName(r.partyId))||''));
+    return hay.toLowerCase().indexOf(q)>=0;
+  });
   let inQty=0,outQty=0;
   db.records.forEach(r=>{ if(r.type==='in') inQty+=r.qty; else outQty+=r.qty; });
   document.getElementById('ledgerCount').textContent=list.length+' 条';
@@ -611,13 +917,15 @@ function renderLedger(){
   box.innerHTML=list.map(r=>{
     const in_=r.type==='in';
     const color=r.color?' · '+esc(r.color):'';
+    const wh=r.warehouseId?('<span style="color:var(--brand-deep);font-weight:700">'+esc(whName(r.warehouseId)||'已删仓库')+'</span>'):'<span style="color:var(--bad)">未指定仓</span>';
+    const who=(r.type==='out'&&r.partyId)?partyName(r.partyId):'';
     let meta;
     if(in_){
-      meta=fmtDate(r.date)+' · 进价 ¥'+fmt(r.price)+(r.supplier?' · '+esc(r.supplier):'')+(r.note?' · '+esc(r.note):'');
+      meta=fmtDate(r.date)+' · '+wh+' · 进价 ¥'+fmt(r.price)+(r.supplier?' · '+esc(r.supplier):'')+(r.note?' · '+esc(r.note):'');
     } else {
       const cost=Number(r.cost)||0, real=Number(r.price)||0;
       const profit=(real-cost)*r.qty;
-      meta=fmtDate(r.date)+' · 成交 ¥'+fmt(real)+' · 进价 ¥'+fmt(cost)+' · 盈利 <b style="color:'+(profit>=0?'var(--good)':'var(--bad)')+'">'+(profit>=0?'+':'')+'¥'+fmt(profit)+'</b>'+(r.note?' · '+esc(r.note):'');
+      meta=fmtDate(r.date)+' · '+wh+' · 成交 ¥'+fmt(real)+' · 盈利 <b style="color:'+(profit>=0?'var(--good)':'var(--bad)')+'">'+(profit>=0?'+':'')+'¥'+fmt(profit)+'</b>'+(who?' · 给 '+esc(who):' · 散客')+(r.note?' · '+esc(r.note):'');
     }
     return '<div class="item" data-id="'+esc(r.id)+'" style="cursor:pointer">'+
       '<div class="body"><div class="name">'+esc(r.name)+color+'</div><div class="meta">'+meta+'</div></div>'+
@@ -633,6 +941,25 @@ function renderLedger(){
 /* ---------- 单条记录：查看 / 修改 / 删除 ---------- */
 let curRecId=null;
 const recMask=document.getElementById('recMask');
+/* 填充编辑弹层里的仓库 / 对象下拉 */
+function fillRecPickers(r){
+  const ws=document.getElementById('rWh');
+  const keep=r.warehouseId||'';
+  ws.innerHTML=db.warehouses.map(w=>'<option value="'+esc(w.id)+'">'+esc(w.name)+'</option>').join('');
+  if(db.warehouses.some(w=>w.id===keep)) ws.value=keep;
+  else {
+    const op=document.createElement('option'); op.value=''; op.textContent='未指定（原仓库已删除）';
+    ws.insertBefore(op,ws.firstChild); ws.value='';
+  }
+  const cs=db.parties.filter(p=>p.type==='customer');
+  const ss=db.parties.filter(p=>p.type==='shop');
+  let h='<option value="">散客（不记入账单）</option>';
+  h+='<optgroup label="客户 · 按包要货">'+cs.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</optgroup>';
+  h+='<optgroup label="商铺 · 按件要货">'+ss.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</optgroup>';
+  const ps=document.getElementById('rParty');
+  ps.innerHTML=h;
+  ps.value = (r.partyId && db.parties.some(p=>p.id===r.partyId))? r.partyId : '';
+}
 function openRecEdit(id){
   const r=db.records.find(x=>x.id===id);
   if(!r) return;
@@ -649,14 +976,23 @@ function openRecEdit(id){
   document.getElementById('rSupplierField').style.display=in_?'':'none';
   document.getElementById('rSupplier').value=r.supplier||'';
   document.getElementById('rNote').value=r.note||'';
+  document.getElementById('rWhField').style.display=db.warehouses.length?'':'none';
+  document.getElementById('rPartyField').style.display=in_?'none':'';
+  fillRecPickers(r);
   const hint=document.getElementById('rStockHint');
   if(!in_){
-    const avail=availFor(r.name,r.color,r.id);
     hint.style.display='block';
-    hint.textContent='该款式除本条外还有 '+avail+' 件，数量最多可改成 '+avail+' 件';
+    hint.textContent='这款在所选仓库、除本条外还有 '+availAt(r.warehouseId,r.name,r.color,r.id)+' 件';
   } else { hint.style.display='none'; }
   recMask.classList.add('open');
 }
+document.getElementById('rWh').addEventListener('change',()=>{
+  const r=db.records.find(x=>x.id===curRecId);
+  if(!r||r.type!=='out') return;
+  const hint=document.getElementById('rStockHint');
+  const whId=document.getElementById('rWh').value||'';
+  hint.textContent='这款在所选仓库、除本条外还有 '+availAt(whId,r.name,r.color,r.id)+' 件';
+});
 function closeRec(){ recMask.classList.remove('open'); curRecId=null; }
 document.getElementById('recCancel').addEventListener('click',closeRec);
 document.getElementById('recMask').addEventListener('click',e=>{ if(e.target===recMask) closeRec(); });
@@ -672,11 +1008,19 @@ document.getElementById('recSave').addEventListener('click',()=>{
   if(!name){ toast('请填写款式名称'); return; }
   if(qty<=0){ toast('数量要大于 0'); return; }
   if(price<0){ toast('单价不能为负'); return; }
+  const whId=document.getElementById('rWh').value||'';
   if(r.type==='out'){
-    const avail=availFor(name,color,r.id);
-    if(qty>avail){ toast('改不了：该款式最多还能出 '+avail+' 件'); return; }
+    const avail=availAt(whId,name,color,r.id);
+    if(qty>avail){ toast('改不了：该款式在「'+(whName(whId)||'所选仓库')+'」最多还能出 '+avail+' 件'); return; }
+    const pv=document.getElementById('rParty').value||'';
+    const p=db.parties.find(x=>x.id===pv);
+    r.partyType = p?p.type:'none';
+    r.partyId = p?p.id:'';
   }
+  r.warehouseId=whId;
   r.date=date; r.qty=qty; r.price=price; r.name=name; r.color=color; r.note=note;
+  const ppb=ppbOf(name,color);
+  r.ppb=ppb; r.bags = ppb>0 ? bagsOf(qty,ppb) : 0;   // 改完数量，包数跟着重算
   if(r.type==='in') r.supplier=document.getElementById('rSupplier').value.trim();
   cache();
   if(autoSave) saveLedgerFile(true);
@@ -696,12 +1040,19 @@ document.getElementById('recDelete').addEventListener('click',()=>{
 function fmt(n){ n=Number(n)||0; return (n%1===0)?n.toLocaleString('zh-CN'):n.toLocaleString('zh-CN',{maximumFractionDigits:2}); }
 function fmtDate(s){ if(!s) return '—'; const a=String(s).split('-'); return Number(a[1])+'月'+Number(a[2])+'日'; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function partyName(id){ const p=db.parties.find(x=>x.id===id); return p?p.name:''; }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
 function todayStr(){ const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
-function refresh(){ renderStock(); renderRecent(); renderReport(); renderLedger(); if(mode==='out') fillOutPick(); }
+function refresh(){
+  if(curWh!=='all' && !db.warehouses.some(w=>w.id===curWh)) curWh='all';  // 仓库被删了就回到全部
+  if(curPartyId && !db.parties.some(p=>p.id===curPartyId)) backParty();
+  renderStock(); renderRecent(); renderReport(); renderLedger(); renderParty();
+  fillWhPick(); fillPartyPick();
+  if(mode==='out') fillOutPick();
+}
 
 /* ---------- 页面切换 ---------- */
-const TITLES={stock:'库存',ledger:'流水',record:'记一笔',report:'报表'};
+const TITLES={stock:'库存',ledger:'流水',record:'记一笔',party:'往来',report:'报表'};
 function goto(tab){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+tab).classList.add('active');
@@ -713,97 +1064,248 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 document.getElementById('topRecordBtn').addEventListener('click',()=>goto('record'));
 
 /* ---------- 记一笔 ---------- */
-const SEG={in:'in',out:'out'};
+/* 仓库下拉（入库 / 出库共用），自动记住上次选的仓 */
+function fillWhPick(){
+  const sel=document.getElementById('fWh');
+  if(!sel) return;
+  const keep=sel.value;
+  if(!db.warehouses.length){ sel.innerHTML='<option value="">请先建仓库</option>'; syncQtyHint(); return; }
+  sel.innerHTML=db.warehouses.map(w=>'<option value="'+esc(w.id)+'">'+esc(w.name)+'</option>').join('');
+  let last=''; try{ last=localStorage.getItem('fashion_last_wh')||''; }catch(e){}
+  const has=id=>db.warehouses.some(w=>w.id===id);
+  sel.value = has(keep)?keep : (has(last)?last : db.warehouses[0].id);
+  syncQtyHint();
+}
+/* 出库款式下拉：只列「当前所选仓库」里还有货的款式，选项已含颜色 */
 function fillOutPick(){
   const sel=document.getElementById('fOutPick');
-  const stocks=stockBySku().filter(s=>s.qty>0);
-  if(!stocks.length){ sel.innerHTML='<option value="">暂无库存可出，请先入库</option>'; return; }
+  if(!sel) return;
+  const keep=sel.value;
+  const whId=document.getElementById('fWh').value||'';
+  const stocks=stockByLoc().filter(s=>s.qty>0 && s.whId===whId);
+  if(!stocks.length){ sel.innerHTML='<option value="">'+(db.warehouses.length?'这个仓库暂无库存':'请先建仓库并入库')+'</option>'; updateOutCostHint(); syncQtyHint(); return; }
   sel.innerHTML='<option value="">请选择款式</option>'+stocks.map(s=>{
-    return `<option value="${esc(skuOf(s))}" data-cost="${s.lastIn}" data-stock="${s.qty}">${esc(s.name)}${s.color?' · '+esc(s.color):''}（库存 ${s.qty}）</option>`;
+    const ppb=ppbOf(s.name,s.color);
+    const show = ppb>0 ? (fmtBags(bagsOf(s.qty,ppb))+' 包') : (s.qty+' 件');
+    return '<option value="'+esc(s.name+'|'+s.color)+'" data-cost="'+s.lastIn+'" data-stock="'+s.qty+'">'+esc(s.name)+(s.color?' · '+esc(s.color):'')+'（剩 '+show+'）</option>';
   }).join('');
+  if(keep && stocks.some(s=>(s.name+'|'+s.color)===keep)) sel.value=keep;  // 刷新时别把已选的款式冲掉
+  updateOutCostHint(); syncQtyHint();
+}
+/* 卖给谁：客户（按包）/ 商铺（按件）/ 散客 */
+function fillPartyPick(){
+  const sel=document.getElementById('fParty');
+  if(!sel) return;
+  const keep=sel.value;
+  const cs=db.parties.filter(p=>p.type==='customer');
+  const ss=db.parties.filter(p=>p.type==='shop');
+  let h='<option value="">散客（不记入账单）</option>';
+  h+='<optgroup label="客户 · 按包要货">'+cs.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'<option value="__new_customer">＋ 新增客户…</option></optgroup>';
+  h+='<optgroup label="商铺 · 按件要货">'+ss.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'<option value="__new_shop">＋ 新增商铺…</option></optgroup>';
+  sel.innerHTML=h;
+  if(keep && db.parties.some(p=>p.id===keep)) sel.value=keep;
+}
+/* 当前上下文的每包件数：入库看输入框，出库看选中款式 */
+function curPpb(){
+  if(mode==='in') return Math.floor(Number(document.getElementById('fPpb').value)||0);
+  const sel=document.getElementById('fOutPick');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value) return 0;
+  const p=String(opt.value).split('|');
+  return ppbOf(p[0],p[1]||'');
+}
+/* 数量 / 价格 的实时换算提示 */
+function syncQtyHint(){
+  const ppb=curPpb();
+  const bh=document.getElementById('bagsHint'), qh=document.getElementById('qtyHint');
+  if(!bh||!qh) return;
+  if(qtyMode==='piece'){
+    bh.style.display='none';
+    const qty=Math.floor(Number(document.getElementById('fQty').value)||0);
+    if(ppb>0&&qty>0){ qh.style.display='block'; qh.textContent='= '+fmtBags(bagsOf(qty,ppb))+' 包（每包 '+ppb+' 件）'; }
+    else qh.style.display='none';
+  } else {
+    qh.style.display='none';
+    const bags=Number(document.getElementById('fBags').value)||0;
+    bh.style.display='block';
+    if(ppb<=0) bh.textContent='这款还没设每包件数'+(mode==='in'?'，先填上面的「每包多少件」':'，去库存页点这款设置');
+    else if(bags>0) bh.textContent='= '+fmt(Math.round(bags*ppb))+' 件（每包 '+ppb+' 件）';
+    else bh.textContent='每包 '+ppb+' 件';
+  }
+}
+function syncPriceHint(){
+  const ph=document.getElementById('priceHint');
+  if(!ph) return;
+  const ppb=curPpb();
+  const v=Number(document.getElementById('fPrice').value)||0;
+  if(priceMode==='bag'){
+    ph.style.display='block';
+    if(ppb>0&&v>0) ph.textContent='折合 ¥'+(Math.round(v/ppb*100)/100)+' / 件';
+    else ph.textContent=(ppb<=0?'先填每包多少件':'按包报价，自动折算成元/件');
+  } else {
+    if(ppb>0&&v>0){ ph.style.display='block'; ph.textContent='折合 ¥'+fmt(Math.round(v*ppb))+' / 包'; }
+    else ph.style.display='none';
+  }
+}
+function setQtyMode(m){
+  qtyMode=m;
+  document.getElementById('qmPiece').classList.toggle('active',m==='piece');
+  document.getElementById('qmBag').classList.toggle('active',m==='bag');
+  document.getElementById('qmHalf').classList.toggle('active',m==='half');
+  const useBags=(m==='bag'||m==='half');
+  document.getElementById('bagsField').style.display=useBags?'':'none';
+  document.getElementById('qtyField').style.display=useBags?'none':'';
+  const bi=document.getElementById('fBags');
+  bi.step=(m==='half')?'0.5':'1';
+  bi.placeholder=(m==='half')?'如 0.5':'如 2';
+  syncQtyHint();
+}
+function setPriceMode(m){
+  priceMode=m;
+  document.getElementById('pmPiece').classList.toggle('active',m==='piece');
+  document.getElementById('pmBag').classList.toggle('active',m==='bag');
+  const lab=document.getElementById('fPriceLabel');
+  const base = mode==='in'?'进价':'实际成交价';
+  lab.textContent = base+'（'+(m==='bag'?'元/包':'元/件')+'）';
+  syncPriceHint();
 }
 function setMode(m){
   mode=m;
   document.getElementById('segIn').classList.toggle('active',m==='in');
   document.getElementById('segOut').classList.toggle('active',m==='out');
   document.getElementById('formTitle').textContent = m==='in'?'进货登记':'出库登记';
-  document.getElementById('fPriceLabel').textContent = m==='in'?'进价（元/件）':'实际成交价（元/件）';
   document.getElementById('saveBtn').textContent = m==='in'?'确认入库':'确认出库';
   document.getElementById('saveBtn').classList.toggle('out',m==='out');
-  document.getElementById('tipLine').textContent = m==='in'?'同一款式不同颜色请分开录入，方便单独看哪个色好卖。':'只能从已有库存中选择款式出库。';
-  const sup=document.getElementById('supplierField');
-  const nmf=document.getElementById('nameField');
-  const opf=document.getElementById('outPickField');
-  if(m==='in'){
-    sup.style.display=''; nmf.style.display=''; opf.style.display='none';
-  } else {
-    sup.style.display='none'; nmf.style.display='none'; opf.style.display='';
-    fillOutPick();
-  }
+  document.getElementById('tipLine').textContent = m==='in'?'同一款式不同颜色请分开录入，方便单独看哪个色好卖。':'款式下拉里已经带颜色，选中即定；只能从所选仓库的现有库存出库。';
+  const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  show('nameField',m==='in');
+  show('colorField',m==='in');
+  show('supplierField',m==='in');
+  show('ppbField',m==='in');
+  show('outPickField',m==='out');
+  show('partyField',m==='out');
+  show('priceModeField',true);
+  fillWhPick();
+  fillPartyPick();
+  if(m==='out') fillOutPick();
   document.getElementById('fColor').value='';
   document.getElementById('fPrice').value='';
   document.getElementById('fQty').value='';
-  updateOutCostHint();
+  document.getElementById('fBags').value='';
+  if(m==='in'){ document.getElementById('fSupplier').value=''; }
+  setPriceMode(priceMode);
+  setQtyMode(qtyMode);
 }
 document.getElementById('segIn').addEventListener('click',()=>setMode('in'));
 document.getElementById('segOut').addEventListener('click',()=>setMode('out'));
 document.getElementById('saveBtn').addEventListener('click',saveRecord);
+document.getElementById('qmPiece').addEventListener('click',()=>setQtyMode('piece'));
+document.getElementById('qmBag').addEventListener('click',()=>setQtyMode('bag'));
+document.getElementById('qmHalf').addEventListener('click',()=>setQtyMode('half'));
+document.getElementById('pmPiece').addEventListener('click',()=>setPriceMode('piece'));
+document.getElementById('pmBag').addEventListener('click',()=>setPriceMode('bag'));
+document.getElementById('fWh').addEventListener('change',()=>{
+  try{ localStorage.setItem('fashion_last_wh',document.getElementById('fWh').value||''); }catch(e){}
+  fillOutPick(); syncQtyHint(); syncPriceHint();
+});
+document.getElementById('fPpb').addEventListener('input',()=>{ syncQtyHint(); syncPriceHint(); });
+document.getElementById('fBags').addEventListener('input',syncQtyHint);
+document.getElementById('fQty').addEventListener('input',syncQtyHint);
+document.getElementById('fPrice').addEventListener('input',syncPriceHint);
+document.getElementById('fOutPick').addEventListener('change',()=>{ updateOutCostHint(); syncQtyHint(); syncPriceHint(); });
+document.getElementById('fParty').addEventListener('change',()=>{
+  const v=document.getElementById('fParty').value;
+  if(v==='__new_customer'){ document.getElementById('fParty').value=''; openPartyEdit(null,'customer'); }
+  else if(v==='__new_shop'){ document.getElementById('fParty').value=''; openPartyEdit(null,'shop'); }
+});
 
-/* 出库时：显示选中款式的进价提示 */
+/* 出库时：显示该仓该款的实时可用量与进价 */
 function updateOutCostHint(){
-  const sel=document.getElementById('fOutPick');
-  const opt=sel.options[sel.selectedIndex];
   const hint=document.getElementById('outCostHint');
   if(!hint) return;
-  if(mode==='out' && opt && opt.value){
-    const cost=Number(opt.dataset.cost)||0, stock=Number(opt.dataset.stock)||0;
-    hint.style.display='block';
-    hint.textContent='该款式进价 ¥'+fmt(cost)+'/件 · 库存 '+stock+' 件';
-  } else {
-    hint.style.display='none';
-  }
+  if(mode!=='out'){ hint.style.display='none'; return; }
+  const sel=document.getElementById('fOutPick');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt || !opt.value){ hint.style.display='none'; return; }
+  const p=String(opt.value).split('|');
+  const whId=document.getElementById('fWh').value||'';
+  const avail=availAt(whId,p[0],p[1]||'',null);
+  const ppb=ppbOf(p[0],p[1]||'');
+  hint.style.display='block';
+  hint.textContent='进价 ¥'+fmt(Number(opt.dataset.cost)||0)+'/件 · '+(whName(whId)||'本仓')+'可用 '+avail+' 件'+(ppb>0?('（约 '+fmtBags(bagsOf(avail,ppb))+' 包）'):'');
 }
-document.getElementById('fOutPick').addEventListener('change',updateOutCostHint);
 
 function saveRecord(){
+  if(!db.warehouses.length){ toast('先建一个仓库才能记账'); openWhEdit(null); return; }
+  const whId=document.getElementById('fWh').value||'';
+  if(!whId){ toast('请选择仓库'); return; }
   const date=document.getElementById('fDate').value || todayStr();
-  const qty=Math.floor(Number(document.getElementById('fQty').value)||0);
-  const price=Number(document.getElementById('fPrice').value)||0;
   const note=document.getElementById('fNote').value.trim();
+  const ppb=curPpb();
+
+  /* 数量：内部一律换算成整数「件」 */
+  let qty=0, bags=0;
+  if(qtyMode==='piece'){
+    qty=Math.floor(Number(document.getElementById('fQty').value)||0);
+    bags = ppb>0 ? bagsOf(qty,ppb) : 0;
+  } else {
+    bags=Number(document.getElementById('fBags').value)||0;
+    if(bags<=0){ toast('请填写包数'); return; }
+    if(ppb<=0){ toast('请先填「每包多少件」'); return; }
+    qty=Math.round(bags*ppb);
+  }
   if(qty<=0){ toast('请填写正确的数量'); return; }
 
-  let name,color,rec;
+  /* 价格：元/包的话折成元/件再入账 */
+  let price=Number(document.getElementById('fPrice').value)||0;
+  if(priceMode==='bag'){
+    if(ppb<=0){ toast('按「元/包」报价前，先填每包多少件'); return; }
+    price = price/ppb;
+  }
+  if(price<=0){ toast(mode==='in'?'请填写进价':'请填写实际成交价'); return; }
+
+  let rec;
   if(mode==='in'){
-    name=document.getElementById('fName').value.trim();
-    color=document.getElementById('fColor').value.trim();
+    const name=document.getElementById('fName').value.trim();
+    const color=document.getElementById('fColor').value.trim();
     if(!name){ toast('请填写款式名称'); return; }
-    if(price<=0){ toast('请填写进价'); return; }
     const supplier=document.getElementById('fSupplier').value.trim();
-    rec={ id:uid(), type:'in', date, name, color, price, supplier, note, qty, ts:Date.now() };
+    if(ppb>0) setPpb(name,color,ppb);
+    rec={ id:uid(), type:'in', date, name, color, price, supplier, note, qty,
+          ts:Date.now(), warehouseId:whId, ppb:ppb, bags:bags };
   } else {
     const sel=document.getElementById('fOutPick');
     const opt=sel.options[sel.selectedIndex];
     if(!opt || !opt.value){ toast('请选择要出库的款式'); return; }
-    if(price<=0){ toast('请填写实际成交价'); return; }
-    const parts=opt.value.split('|');
-    name=parts[0]; color=parts[1]||'';
-    const avail=availFor(name,color,null);
-    if(qty>avail){ toast('库存不足，当前仅 '+avail+' 件'); return; }
-    const cost=costOf(name,color)||0;
-    rec={ id:uid(), type:'out', date, name, color, price, cost, note, qty, ts:Date.now() };
+    const parts=String(opt.value).split('|');
+    const name=parts[0], color=parts[1]||'';
+    const avail=availAt(whId,name,color,null);
+    if(qty>avail){ toast('库存不足，「'+(whName(whId)||'本仓')+'」当前仅 '+avail+' 件'); return; }
+    const cost=costAt(whId,name,color)||0;
+    const pVal=document.getElementById('fParty').value||'';
+    let partyType='none', partyId='';
+    if(pVal){
+      const p=db.parties.find(x=>x.id===pVal);
+      if(p){ partyType=p.type; partyId=p.id; }
+    }
+    rec={ id:uid(), type:'out', date, name, color, price, cost, note, qty,
+          ts:Date.now(), warehouseId:whId, ppb:ppb, bags:bags, partyType, partyId };
   }
 
   db.records.push(rec);
   cache();
   if(autoSave) saveLedgerFile(true);
   refresh();
-  toast(mode==='in'?'已入库 '+qty+' 件':'已出库 '+qty+' 件');
+  toast(mode==='in' ? ('已入库 '+fmt(qty)+' 件'+(ppb>0?('（'+fmtBags(bags)+' 包）'):''))
+                    : ('已出库 '+fmt(qty)+' 件'+(ppb>0?('（'+fmtBags(bags)+' 包）'):'')));
 
-  // 清空表单（保留款式方便连记）
+  // 清空数量与价格，保留仓库 / 款式方便连记
   document.getElementById('fQty').value='';
+  document.getElementById('fBags').value='';
   document.getElementById('fPrice').value='';
   document.getElementById('fNote').value='';
   if(mode==='in'){ document.getElementById('fColor').value=''; document.getElementById('fSupplier').value=''; }
+  setQtyMode(qtyMode); setPriceMode(priceMode);
 }
 
 /* ---------- 搜索 ---------- */
@@ -812,33 +1314,59 @@ document.getElementById('stockSearch').addEventListener('input',e=>{ stockQuery=
 /* ---------- 库存项：修改 / 删除 ---------- */
 let curSku=null;
 const skuMask=document.getElementById('skuMask');
-function openSkuEdit(sku){
-  curSku=sku;
-  const [name,color]=sku.split('|');
-  const s=stockBySku().find(x=>(x.name+'|'+x.color)===sku);
+/* loc = 仓库ID || 款名 | 颜色 */
+function splitLoc(loc){
+  const p=String(loc||'').split('||');
+  const whId=p[0]||'';
+  const rest=p[1]!==undefined?p[1]:'';
+  const i=rest.indexOf('|');
+  const name = i>=0? rest.slice(0,i) : rest;
+  const color = i>=0? rest.slice(i+1) : '';
+  return {whId:whId,name:name,color:color};
+}
+function openSkuEdit(loc){
+  const {whId,name,color}=splitLoc(loc);
+  const s=stockByLoc().find(x=>x.key===loc);
+  const ppb=ppbOf(name,color);
+  curSku=loc;
   document.getElementById('skuTitle').textContent = color? name+' · '+color : name;
-  document.getElementById('skuSub').textContent = '修改进价会同步到该款所有历史记录，用于重新计算盈利';
-  document.getElementById('skuStock').textContent = s?s.qty:0;
+  document.getElementById('skuSub').textContent = '所在仓库：'+(whName(whId)||'未指定');
+  document.getElementById('skuStock').textContent = s ? (ppb>0? fmtBags(bagsOf(s.qty,ppb)) : fmt(s.qty)) : 0;
   document.getElementById('skuCost').textContent = '¥'+fmt(s?s.lastIn:0);
   document.getElementById('skuNewCost').value = '';
+  document.getElementById('skuPpb').value = ppb>0? ppb : '';
+  const echo=document.getElementById('skuWhEcho'); if(echo) echo.textContent = whName(whId)||'这个仓库';
+  const lab=skuMask.querySelector('.stat .s .lab'); if(lab) lab.textContent = ppb>0?'当前库存（包）':'当前库存（件）';
   skuMask.classList.add('open');
 }
 function closeSku(){ skuMask.classList.remove('open'); curSku=null; }
 document.getElementById('skuCancel').addEventListener('click',closeSku);
 document.getElementById('skuMask').addEventListener('click',e=>{ if(e.target===skuMask) closeSku(); });
+document.getElementById('skuSavePpb').addEventListener('click',()=>{
+  if(!curSku) return;
+  const {name,color}=splitLoc(curSku);
+  const v=Number(document.getElementById('skuPpb').value);
+  if(!(v>0)){ toast('请填写每包多少件'); return; }
+  setPpb(name,color,v);
+  cache();
+  if(autoSave) saveLedgerFile(true);
+  closeSku(); refresh();
+  toast('已设置这款每包 '+v+' 件');
+});
 document.getElementById('skuSaveCost').addEventListener('click',()=>{
   if(!curSku) return;
   const v=Number(document.getElementById('skuNewCost').value);
   if(!(v>0)){ toast('请输入正确的进价'); return; }
-  const [name,color]=curSku.split('|');
+  const {whId,name,color}=splitLoc(curSku);
   let changed=0;
   db.records.forEach(r=>{
-    if(r.name===name && (r.color||'')===(color||'')){
-      if(r.type==='in'){ r.price=v; changed++; }
-      else { r.cost=v; }
-    }
+    if((r.warehouseId||'')!==whId) return;
+    if((r.name||'')!==name) return;
+    if((r.color||'')!==color) return;
+    if(r.type==='in'){ r.price=v; changed++; }
+    else { r.cost=v; }
   });
-  if(!changed){ toast('未找到该款入库记录'); return; }
+  if(!changed){ toast('未找到该仓库这款的入库记录'); return; }
   cache();
   if(autoSave) saveLedgerFile(true);
   closeSku(); refresh();
@@ -846,14 +1374,234 @@ document.getElementById('skuSaveCost').addEventListener('click',()=>{
 });
 document.getElementById('skuDelete').addEventListener('click',()=>{
   if(!curSku) return;
-  if(!confirm('确定删除该商品吗？将同时删除它的全部入库和出库记录，且不可恢复。建议先导出备份。')) return;
-  const [name,color]=curSku.split('|');
+  const {whId,name,color}=splitLoc(curSku);
+  const wn=whName(whId)||'未指定';
+  if(!confirm('确定删除「'+wn+'」里的这个商品吗？\n将同时删除它在该仓库的全部入库和出库记录，且不可恢复。建议先导出备份。')) return;
   const before=db.records.length;
-  db.records = db.records.filter(r=> !(r.name===name && (r.color||'')===(color||'')));
+  db.records = db.records.filter(r=> !((r.warehouseId||'')===whId && (r.name||'')===name && (r.color||'')===color));
   cache();
   if(autoSave) saveLedgerFile(true);
   closeSku(); refresh();
   toast('已删除该商品（删除 '+ (before-db.records.length) +' 条记录）');
+});
+
+/* ---------- 仓库：新建 / 改名 / 删除空仓 ---------- */
+let curWhEditId=null;
+const whMask=document.getElementById('whMask');
+function openWhEdit(id){
+  curWhEditId=id||null;
+  const w=id?db.warehouses.find(x=>x.id===id):null;
+  document.getElementById('whTitle').textContent = w?'仓库改名':'新建仓库';
+  document.getElementById('whSub').textContent = w?'改名后，这个仓里的进出记录会自动跟着走':'货放在哪就建哪个仓，建好之后入库时就能选它';
+  document.getElementById('whNameInput').value = w?w.name:'';
+  const del=document.getElementById('whDelete');
+  del.style.display = (w && !db.records.some(r=>(r.warehouseId||'')===id)) ? '' : 'none';
+  whMask.classList.add('open');
+  setTimeout(()=>{ try{ document.getElementById('whNameInput').focus(); }catch(e){} },150);
+}
+function closeWh(){ whMask.classList.remove('open'); curWhEditId=null; }
+document.getElementById('whCancel').addEventListener('click',closeWh);
+document.getElementById('whMask').addEventListener('click',e=>{ if(e.target===whMask) closeWh(); });
+document.getElementById('whSave').addEventListener('click',()=>{
+  const name=document.getElementById('whNameInput').value.trim();
+  if(!name){ toast('请填写仓库名称'); return; }
+  if(curWhEditId){
+    const w=db.warehouses.find(x=>x.id===curWhEditId);
+    if(w) w.name=name;
+  } else {
+    const id=uid();
+    db.warehouses.push({id:id,name:name});
+    curWh=id;
+  }
+  cache(); if(autoSave) saveLedgerFile(true);
+  closeWh(); refresh(); toast('已保存仓库「'+name+'」');
+});
+document.getElementById('whDelete').addEventListener('click',()=>{
+  if(!curWhEditId) return;
+  const w=db.warehouses.find(x=>x.id===curWhEditId);
+  if(!w) return;
+  if(db.records.some(r=>(r.warehouseId||'')===curWhEditId)){ toast('这个仓库里还有货，不能删'); return; }
+  if(!confirm('确定删除仓库「'+w.name+'」吗？它是空的，需要时可以重新建。')) return;
+  db.warehouses=db.warehouses.filter(x=>x.id!==curWhEditId);
+  if(curWh===curWhEditId) curWh='all';
+  cache(); if(autoSave) saveLedgerFile(true);
+  closeWh(); refresh(); toast('已删除仓库「'+w.name+'」');
+});
+
+/* ---------- 往来对象：新增 / 改名 ---------- */
+let peEditId=null, peEditType='customer';
+const partyMask=document.getElementById('partyMask');
+function openPartyEdit(id,type){
+  peEditId=id||null;
+  const p=id?db.parties.find(x=>x.id===id):null;
+  peEditType = p?p.type:(type||'customer');
+  const isC = peEditType==='customer';
+  document.getElementById('peTitle').textContent = (id?'编辑':'新增')+(isC?'客户':'商铺');
+  document.getElementById('peSub').textContent = isC?'客户按包要货，最少可以半包':'商铺按件要货';
+  document.getElementById('peName').value = p?p.name:'';
+  document.getElementById('peNote').value = p?(p.note||''):'';
+  partyMask.classList.add('open');
+  setTimeout(()=>{ try{ document.getElementById('peName').focus(); }catch(e){} },150);
+}
+function closePartyEdit(){ partyMask.classList.remove('open'); peEditId=null; }
+document.getElementById('peCancel').addEventListener('click',closePartyEdit);
+document.getElementById('partyMask').addEventListener('click',e=>{ if(e.target===partyMask) closePartyEdit(); });
+document.getElementById('peSave').addEventListener('click',()=>{
+  const name=document.getElementById('peName').value.trim();
+  if(!name){ toast('请填写名称'); return; }
+  const note=document.getElementById('peNote').value.trim();
+  if(peEditId){
+    const p=db.parties.find(x=>x.id===peEditId);
+    if(p){ p.name=name; p.note=note; }
+  } else {
+    db.parties.push({id:uid(),type:peEditType,name:name,note:note,ts:Date.now()});
+  }
+  cache(); if(autoSave) saveLedgerFile(true);
+  closePartyEdit(); refresh(); toast('已保存「'+name+'」');
+});
+
+/* ---------- 往来页：名单 + 账单 ---------- */
+function setPartyTab(t){
+  partyTab=t;
+  document.getElementById('ptCustomer').classList.toggle('active',t==='customer');
+  document.getElementById('ptShop').classList.toggle('active',t==='shop');
+  renderParty();
+}
+document.getElementById('ptCustomer').addEventListener('click',()=>setPartyTab('customer'));
+document.getElementById('ptShop').addEventListener('click',()=>setPartyTab('shop'));
+document.getElementById('addPartyBtn').addEventListener('click',()=>openPartyEdit(null,partyTab));
+document.getElementById('partyBack').addEventListener('click',backParty);
+document.getElementById('renamePartyBtn').addEventListener('click',()=>{ if(curPartyId) openPartyEdit(curPartyId); });
+document.getElementById('addPayBtn').addEventListener('click',openPayAdd);
+
+function renderParty(){
+  const isC = partyTab==='customer';
+  const list=db.parties.filter(p=>p.type===partyTab);
+  let dueAll=0,paidAll=0;
+  list.forEach(p=>{ const b=partyBill(p.id); dueAll+=b.due; paidAll+=b.paid; });
+  const g=id=>document.getElementById(id);
+  if(g('pDueAll')) g('pDueAll').textContent=fmt(dueAll);
+  if(g('pPaidAll')) g('pPaidAll').textContent=fmt(paidAll);
+  if(g('pLeftAll')) g('pLeftAll').textContent=fmt(dueAll-paidAll);
+  if(g('pCount')) g('pCount').textContent=list.length;
+  const cnt=document.getElementById('partyCount'); if(cnt) cnt.textContent=list.length+' 个';
+  const box=document.getElementById('partyList');
+  if(!box) return;
+  if(!list.length){
+    box.innerHTML='<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>还没有'+(isC?'客户':'商铺')+'<br>点下面「新增对象」，或出库时直接挂上</div>';
+    return;
+  }
+  box.innerHTML=list.map(p=>{
+    const b=partyBill(p.id);
+    const got = isC ? (fmtBags(b.bags)+' 包') : (fmt(b.qty)+' 件');
+    const leftTxt = b.left>0.005 ? ('欠 ¥'+fmt(b.left)) : '已结清';
+    const cls = b.left>0.005 ? 'owe' : 'clear';
+    return '<div class="item" data-pid="'+esc(p.id)+'" style="cursor:pointer">'+
+      '<div class="body"><div class="name">'+esc(p.name)+'</div>'+
+      '<div class="meta">拿货 '+got+' · 应收 ¥'+fmt(b.due)+'</div></div>'+
+      '<div class="right"><div class="stock '+cls+'" style="font-size:15px">'+leftTxt+'</div><div class="cap">已收 ¥'+fmt(b.paid)+'</div></div>'+
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd3de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m9 18 6-6-6-6"/></svg></div>';
+  }).join('');
+  box.querySelectorAll('.item[data-pid]').forEach(el=>{
+    el.addEventListener('click',()=>openParty(el.dataset.pid));
+  });
+}
+function openParty(id){
+  curPartyId=id;
+  document.getElementById('partyListView').style.display='none';
+  document.getElementById('partyDetailView').style.display='';
+  renderPartyDetail();
+  window.scrollTo(0,0);
+}
+function backParty(){
+  curPartyId=null;
+  document.getElementById('partyDetailView').style.display='none';
+  document.getElementById('partyListView').style.display='';
+  renderParty();
+}
+function renderPartyDetail(){
+  const p=db.parties.find(x=>x.id===curPartyId);
+  if(!p){ backParty(); return; }
+  const b=partyBill(p.id);
+  const isC = p.type==='customer';
+  const unit = isC?'包':'件';
+  document.getElementById('pdDue').textContent=fmt(b.due);
+  document.getElementById('pdPaid').textContent=fmt(b.paid);
+  document.getElementById('pdLeft').textContent=fmt(b.left);
+  document.getElementById('pdUnit').textContent=unit;
+  document.getElementById('pdQty').textContent = isC? fmtBags(b.bags) : fmt(b.qty);
+  const leftEl=document.getElementById('pdLeft');
+  if(leftEl) leftEl.style.color = b.left>0.005?'':'var(--good)';
+  // 出货明细
+  const outs=db.records.filter(r=>r.type==='out'&&r.partyId===p.id).sort((a,b)=>b.ts-a.ts);
+  const ob=document.getElementById('pdOutList');
+  const ppbHint = isC?'':'';
+  ob.innerHTML = outs.length ? outs.map(r=>{
+    const bags = Number(r.bags)||0;
+    const qtyTxt = (isC&&bags>0) ? (fmtBags(bags)+' 包') : (fmt(r.qty)+' 件');
+    const amt=(Number(r.price)||0)*r.qty;
+    return '<div class="mini"><div class="b"><div class="t1">'+esc(r.name)+(r.color?' · '+esc(r.color):'')+'</div>'+
+      '<div class="t2">'+fmtDate(r.date)+' · '+qtyTxt+' · ¥'+fmt(r.price)+'/件'+(r.warehouseId?(' · '+esc(whName(r.warehouseId))):'')+'</div></div>'+
+      '<div class="amt">¥'+fmt(amt)+'</div></div>';
+  }).join('') : '<div class="empty" style="padding:22px 10px">还没有出货记录</div>';
+  // 回款明细
+  const pays=db.payments.filter(x=>x.partyId===p.id).sort((a,b)=>b.ts-a.ts);
+  const pb=document.getElementById('pdPayList');
+  pb.innerHTML = pays.length ? pays.map(x=>{
+    return '<div class="mini"><div class="b"><div class="t1">¥'+fmt(x.amount)+'</div>'+
+      '<div class="t2">'+fmtDate(x.date)+(x.note?(' · '+esc(x.note)):'')+'</div></div>'+
+      '<button class="del" data-pay="'+esc(x.id)+'">删除</button></div>';
+  }).join('') : '<div class="empty" style="padding:22px 10px">还没有回款记录</div>';
+  pb.querySelectorAll('button[data-pay]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=btn.dataset.pay;
+      if(!confirm('确定删除这笔回款吗？')) return;
+      db.payments=db.payments.filter(x=>x.id!==id);
+      cache(); if(autoSave) saveLedgerFile(true);
+      refresh(); toast('已删除该回款');
+    });
+  });
+}
+/* 删除对象：有欠款没结清就不让删 */
+document.getElementById('delPartyBtn').addEventListener('click',()=>{
+  const p=db.parties.find(x=>x.id===curPartyId);
+  if(!p) return;
+  const b=partyBill(p.id);
+  if(b.left>0.005){ toast('还有 ¥'+fmt(b.left)+' 没收回来，结清后才能删除'); return; }
+  if(!confirm('确定删除「'+p.name+'」吗？\n他名下的出货记录会保留并转为散客，回款记录会一并删除。')) return;
+  db.records.forEach(r=>{ if(r.partyId===p.id){ r.partyType='none'; r.partyId=''; } });
+  db.payments=db.payments.filter(x=>x.partyId!==p.id);
+  db.parties=db.parties.filter(x=>x.id!==p.id);
+  cache(); if(autoSave) saveLedgerFile(true);
+  backParty(); toast('已删除，出货记录已转为散客');
+});
+
+/* ---------- 回款 ---------- */
+const payMask=document.getElementById('payMask');
+function openPayAdd(){
+  const p=db.parties.find(x=>x.id===curPartyId);
+  if(!p) return;
+  const b=partyBill(p.id);
+  document.getElementById('paySub').textContent='「'+p.name+'」目前还没收回 ¥'+fmt(b.left);
+  document.getElementById('payDate').value=todayStr();
+  document.getElementById('payAmt').value='';
+  document.getElementById('payNote').value='';
+  payMask.classList.add('open');
+  setTimeout(()=>{ try{ document.getElementById('payAmt').focus(); }catch(e){} },150);
+}
+function closePay(){ payMask.classList.remove('open'); }
+document.getElementById('payCancel').addEventListener('click',closePay);
+document.getElementById('payMask').addEventListener('click',e=>{ if(e.target===payMask) closePay(); });
+document.getElementById('paySave').addEventListener('click',()=>{
+  const amt=Number(document.getElementById('payAmt').value);
+  if(!(amt>0)){ toast('请填写收回金额'); return; }
+  db.payments.push({
+    id:uid(), partyId:curPartyId,
+    date:document.getElementById('payDate').value||todayStr(),
+    amount:amt, note:document.getElementById('payNote').value.trim(), ts:Date.now()
+  });
+  cache(); if(autoSave) saveLedgerFile(true);
+  closePay(); refresh(); toast('已记回款 ¥'+fmt(amt));
 });
 
 /* ---------- 报表：账本文件与备份 ---------- */
@@ -882,13 +1630,13 @@ document.getElementById('fileInput').addEventListener('change',e=>{
         data=parseExcelLedger(ev.target.result);
       } else {
         const text=(typeof ev.target.result==='string')?ev.target.result:new TextDecoder('utf-8').decode(ev.target.result);
-        const m=text.match(/id="EMBEDDED_DATA"[^>]*>([\s\S]*?)<\/script>/);
+        const m=text.match(/id="(?:YIZHANG_DATA_V3|EMBEDDED_DATA)"[^>]*>([\s\S]*?)<\/script>/);
         if(m){ data=JSON.parse(m[1]); }
         else { data=JSON.parse(text); if(data.db) data=data.db; }
         if(!data||!Array.isArray(data.records)) throw new Error('bad');
       }
-      db={records:data.records}; cache(); refresh();
-      toast('已恢复 '+db.records.length+' 条记录');
+      db=normalize(data); cache(); refresh();
+      toast('已恢复 '+db.records.length+' 条记录、'+db.warehouses.length+' 个仓库');
     }catch(err){ toast('文件不是有效的账本备份'); }
     e.target.value='';
   };
@@ -930,13 +1678,16 @@ function parseExcelLedger(buf){
 }
 document.getElementById('csvBtn').addEventListener('click',()=>{
   try{
-    const rows=[['日期','类型','款式','颜色','数量','单价(元)','进价(元)','供应商/渠道','备注']];
+    const r2=n=>Math.round((Number(n)||0)*100)/100;
+    const rows=[['日期','类型','仓库','款式','颜色','件数','包数','每包件数','单价(元/件)','进价(元/件)','供应商/渠道','客户/商铺','备注']];
     [...db.records].sort((a,b)=>a.ts-b.ts).forEach(r=>{
-      rows.push([r.date, r.type==='in'?'入库':'出库', r.name, r.color||'', r.qty, r.price, r.type==='out'?(r.cost||''):'', r.supplier||'', r.note||'']);
+      rows.push([r.date, r.type==='in'?'入库':'出库', whName(r.warehouseId)||'未指定', r.name, r.color||'', r.qty,
+        (Number(r.bags)||0)?r2(r.bags):'', (Number(r.ppb)||0)||'', r.price, r.type==='out'?(r.cost||''):'',
+        r.supplier||'', (r.type==='out'&&r.partyId)?(partyName(r.partyId)||''):'', r.note||'']);
     });
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:12},{wch:8},{wch:18},{wch:10},{wch:8},{wch:10},{wch:10},{wch:16},{wch:14}];
+    ws['!cols']=[{wch:12},{wch:8},{wch:14},{wch:18},{wch:10},{wch:8},{wch:8},{wch:10},{wch:12},{wch:12},{wch:16},{wch:14},{wch:18}];
     XLSX.utils.book_append_sheet(wb,ws,'流水');
     const d=new Date(); const p=x=>String(x).padStart(2,'0');
     XLSX.writeFile(wb,'服装流水_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'.xlsx');
@@ -964,6 +1715,8 @@ function init(){
   if(!document.getElementById('fDate').value) document.getElementById('fDate').value=todayStr();
   setMode('in');
   refresh();
+  // 一个仓库都没有：引导先建一个，否则没法入库
+  if(!db.warehouses.length){ setTimeout(()=>openWhEdit(null),350); }
 }
 init();
 </script>
