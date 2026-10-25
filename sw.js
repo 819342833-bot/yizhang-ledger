@@ -1,7 +1,7 @@
 /* 衣账 离线缓存
    注意：每次更新 index.html，必须把 CACHE 的版本号 +1，
    否则老设备会一直打到旧缓存、看不到新版本。 */
-var CACHE = "yizhang-v4";
+var CACHE = "yizhang-v6";
 var ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
