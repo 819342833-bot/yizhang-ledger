@@ -416,7 +416,11 @@ input[type=file]{display:none}
         <div class="field"><label>颜色</label><input type="text" id="rColor"></div>
       </div>
       <div class="field" id="rPartyField"><label>卖给谁</label><select id="rParty"></select></div>
-      <div class="field"><label>数量（件）</label><input type="number" id="rQty" inputmode="numeric"></div>
+      <div class="field" id="rQtyModeField"><label>数量怎么填</label>
+        <div class="tabs-seg seg-sm"><button id="rqmPiece" class="active">按件</button><button id="rqmBag">按包</button></div>
+      </div>
+      <div class="field" id="rQtyField"><label>数量（件）</label><input type="number" id="rQty" inputmode="numeric"><div class="hint" id="rQtyHint" style="display:none"></div></div>
+      <div class="field" id="rBagsField" style="display:none"><label>包数</label><input type="number" id="rBags" inputmode="decimal" step="0.5" placeholder="如 2.5"><div class="hint" id="rBagsHint" style="display:none"></div></div>
       <div class="field"><label id="rPriceLabel">单价（元/件）</label><input type="number" id="rPrice" inputmode="decimal"></div>
       <div class="field" id="rSupplierField"><label>供应商 / 进货渠道</label><input type="text" id="rSupplier"></div>
       <div class="field"><label>备注</label><input type="text" id="rNote"></div>
@@ -1056,6 +1060,8 @@ function openRecEdit(id){
   document.getElementById('rName').value=r.name||'';
   document.getElementById('rColor').value=r.color||'';
   document.getElementById('rQty').value=r.qty;
+  document.getElementById('rBags').value = (Number(r.bags)||0)>0 ? (Math.round(Number(r.bags)*100)/100) : '';
+  setRecQtyMode('piece');   // 默认按件；这条本来是按包录的，切到「按包」会带上原来的包数
   document.getElementById('rPrice').value=r.price;
   document.getElementById('rPriceLabel').textContent=in_?'进价（元/件）':'实际成交价（元/件）';
   document.getElementById('rSupplierField').style.display=in_?'':'none';
@@ -1079,13 +1085,59 @@ document.getElementById('rWh').addEventListener('change',()=>{
   hint.textContent='这款在所选仓库、除本条外还有 '+availAt(whId,r.name,r.color,r.id)+' 件';
 });
 function closeRec(){ recMask.classList.remove('open'); curRecId=null; }
+/* 编辑弹窗里的「按件 / 按包」切换：内部仍然只存整数件，按包填的换算后入库 */
+let recQtyMode='piece';
+function recPpb(){
+  const name=document.getElementById('rName').value.trim();
+  const color=document.getElementById('rColor').value.trim();
+  return ppbOf(name,color);
+}
+function setRecQtyMode(m){
+  recQtyMode=m;
+  document.getElementById('rqmPiece').classList.toggle('active',m==='piece');
+  document.getElementById('rqmBag').classList.toggle('active',m==='bag');
+  document.getElementById('rQtyField').style.display = m==='piece'?'':'none';
+  document.getElementById('rBagsField').style.display = m==='bag'?'':'none';
+  syncRecQtyHint();
+}
+function syncRecQtyHint(){
+  const ppb=recPpb();
+  const qh=document.getElementById('rQtyHint'), bh=document.getElementById('rBagsHint');
+  if(!qh||!bh) return;
+  if(recQtyMode==='piece'){
+    const qty=Math.floor(Number(document.getElementById('rQty').value)||0);
+    if(ppb>0&&qty>0){ qh.style.display='block'; qh.textContent='= '+fmtBags(bagsOf(qty,ppb))+' 包（每包 '+ppb+' 件）'; }
+    else qh.style.display='none';
+  } else {
+    const bags=Number(document.getElementById('rBags').value)||0;
+    bh.style.display='block';
+    if(ppb<=0) bh.textContent='这个款式还没设每包件数，存不了按包——先去库存页点这款设置，或改回「按件」';
+    else if(bags>0) bh.textContent='= '+fmt(Math.round(bags*ppb))+' 件（每包 '+ppb+' 件）';
+    else bh.textContent='每包 '+ppb+' 件';
+  }
+}
+document.getElementById('rqmPiece').addEventListener('click',()=>setRecQtyMode('piece'));
+document.getElementById('rqmBag').addEventListener('click',()=>setRecQtyMode('bag'));
+['rName','rColor','rQty','rBags'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',syncRecQtyHint);
+});
 document.getElementById('recCancel').addEventListener('click',closeRec);
 document.getElementById('recMask').addEventListener('click',e=>{ if(e.target===recMask) closeRec(); });
 document.getElementById('recSave').addEventListener('click',()=>{
   const r=db.records.find(x=>x.id===curRecId);
   if(!r) return;
   const date=document.getElementById('rDate').value||r.date||todayStr();
-  const qty=Math.floor(Number(document.getElementById('rQty').value)||0);
+  /* 数量：按件直接取整数；按包先换算成整数件（和「记一笔」同一套规则） */
+  let qty;
+  if(recQtyMode==='bag'){
+    const ppb0=recPpb();
+    const bags=Number(document.getElementById('rBags').value)||0;
+    if(bags<=0){ toast('请填写包数'); return; }
+    if(ppb0<=0){ toast('这个款式还没设每包件数，请改回「按件」，或先去库存页设置'); return; }
+    qty=Math.round(bags*ppb0);
+  } else {
+    qty=Math.floor(Number(document.getElementById('rQty').value)||0);
+  }
   const price=Number(document.getElementById('rPrice').value)||0;
   const name=document.getElementById('rName').value.trim();
   const color=document.getElementById('rColor').value.trim();
@@ -1782,7 +1834,7 @@ document.getElementById('fileInput').addEventListener('change',e=>{
       }
       db=normalize(data); cache(); refresh();
       toast('已恢复 '+db.records.length+' 条记录、'+db.warehouses.length+' 个仓库');
-    }catch(err){ toast('文件不是有效的账本备份'); }
+    }catch(err){ toast('认不出这个文件：请选「保存 Excel 账本」生成的 .xlsx，或「完整备份 JSON」导出的 .json'); }
     e.target.value='';
   };
   if((f.name||'').split('.').pop().toLowerCase()==='xlsx'||(f.name||'').split('.').pop().toLowerCase()==='xls'){
@@ -1791,35 +1843,76 @@ document.getElementById('fileInput').addEventListener('change',e=>{
     reader.readAsText(f);
   }
 });
-/* 从 Excel 账本解析出记录 */
+/* 从 Excel 账本解析出记录。
+   关键：按「表头名字」找列，不写死位置——这样新版（带仓库/包数列）和旧版导出都能认。
+   新版列：日期 类型 仓库 款式 颜色 件数 包数 每包件数 单价 进价 供应商 客户/商铺 备注 */
 function parseExcelLedger(buf){
   if(typeof XLSX==='undefined') throw new Error('no-xlsx');
   const wb=XLSX.read(buf,{type:'array'});
-  const ws=wb.Sheets['出入库流水']||wb.Sheets[wb.SheetNames[0]];
+  let ws=wb.Sheets['出入库流水'];
+  if(!ws){
+    const nm=(wb.SheetNames||[]).find(n=>/流水/.test(n));
+    ws = wb.Sheets[nm] || wb.Sheets[wb.SheetNames[0]];
+  }
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!rows.length) throw new Error('empty');
+  const head=(rows[0]||[]).map(x=>String(x||'').trim());
+  const col={}; head.forEach((h,i)=>{ if(h && !(h in col)) col[h]=i; });
+  const isNew = col['仓库']!==undefined && col['款式']!==undefined;
+  const C = isNew ? {
+    date:col['日期'], type:col['类型'], wh:col['仓库'], name:col['款式'], color:col['颜色'],
+    qty:col['件数'], ppb:col['每包件数'], price:col['单价(元/件)'], cost:col['进价(元/件)'],
+    sup:col['供应商/渠道'], party:col['客户/商铺'], note:col['备注']
+  } : { date:0, type:1, wh:-1, name:2, color:3, qty:4, ppb:-1, price:5, cost:6, sup:7, party:-1, note:8 };
+  if(C.name===undefined || C.qty===undefined) throw new Error('bad-header');
   const records=[];
+  const whs=db.warehouses.slice(), pts=db.parties.slice(), ppbCopy=Object.assign({},db.ppb);
+  const whIds={}, ptIds={};
   let ts=Date.now()-rows.length*1000;
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
-    if(!r || !r[0]) continue;
-    const date=String(r[0]||'').trim();
-    const typeRaw=String(r[1]||'').trim();
-    const type=typeRaw.indexOf('入')>=0?'in':'out';
-    const name=String(r[2]||'').trim();
+    if(!r || !r[C.date]) continue;
+    const type=String(r[C.type]||'').trim().indexOf('入')>=0?'in':'out';
+    const name=String(r[C.name]||'').trim();
     if(!name) continue;
-    const color=String(r[3]||'').trim();
-    const qty=Number(r[4])||0;
-    const price=Number(r[5])||0;
+    const color=String(r[C.color]||'').trim();
+    const qty=Number(r[C.qty])||0;
     if(qty<=0) continue;
-    const rec={ id:uid(), type, date, name, color, price, qty, ts };
-    if(type==='out'){ rec.cost=Number(r[6])||0; }
-    const supplier=String(r[7]||'').trim(); if(supplier) rec.supplier=supplier;
-    const note=String(r[8]||'').trim(); if(note) rec.note=note;
+    const rec={ id:uid(), type, date:String(r[C.date]).trim(), name, color, qty, price:Number(r[C.price])||0, ts };
+    if(type==='out') rec.cost=Number(r[C.cost])||0;
+    // 仓库：按名字找回 / 找不到就重建
+    if(C.wh>=0){
+      const wn=String(r[C.wh]||'').trim();
+      if(wn && wn!=='未指定'){
+        if(!whIds[wn]){
+          const ex=db.warehouses.find(w=>w.name===wn);
+          if(ex) whIds[wn]=ex.id;
+          else { const nid=uid(); whs.push({id:nid,name:wn}); whIds[wn]=nid; }
+        }
+        rec.warehouseId=whIds[wn];
+      }
+    }
+    // 每包件数：按 款|色 恢复
+    if(C.ppb>=0){ const ppb=Math.floor(Number(r[C.ppb])||0); if(ppb>0) ppbCopy[(name||'')+'|'+(color||'')]=ppb; }
+    if(C.sup>=0){ const s=String(r[C.sup]||'').trim(); if(s) rec.supplier=s; }
+    // 往来对象：按名字找回 / 找不到就按客户新建
+    if(type==='out' && C.party>=0){
+      const pn=String(r[C.party]||'').trim();
+      if(pn){
+        if(!ptIds[pn]){
+          const ex=db.parties.find(p=>p.name===pn);
+          if(ex) ptIds[pn]=ex;
+          else { const np={id:uid(), type:'customer', name:pn, note:''}; pts.push(np); ptIds[pn]=np; }
+        }
+        rec.partyType=ptIds[pn].type; rec.partyId=ptIds[pn].id;
+      }
+    }
+    const note=String(r[C.note]||'').trim(); if(note) rec.note=note;
     records.push(rec);
     ts+=1000;
   }
   if(!records.length) throw new Error('no-records');
-  return {records};
+  return { records:records, warehouses:whs, parties:pts, ppb:ppbCopy };
 }
 document.getElementById('csvBtn').addEventListener('click',()=>{
   try{
