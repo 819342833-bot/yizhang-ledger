@@ -1856,20 +1856,42 @@ function parseExcelLedger(buf){
   }
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
   if(!rows.length) throw new Error('empty');
-  const head=(rows[0]||[]).map(x=>String(x||'').trim());
-  const col={}; head.forEach((h,i)=>{ if(h && !(h in col)) col[h]=i; });
-  const isNew = col['仓库']!==undefined && col['款式']!==undefined;
-  const C = isNew ? {
-    date:col['日期'], type:col['类型'], wh:col['仓库'], name:col['款式'], color:col['颜色'],
-    qty:col['件数'], ppb:col['每包件数'], price:col['单价(元/件)'], cost:col['进价(元/件)'],
-    sup:col['供应商/渠道'], party:col['客户/商铺'], note:col['备注']
-  } : { date:0, type:1, wh:-1, name:2, color:3, qty:4, ppb:-1, price:5, cost:6, sup:7, party:-1, note:8 };
-  if(C.name===undefined || C.qty===undefined) throw new Error('bad-header');
+  /* 表头模糊认列：按列名的含义找列，兼容各代导出格式——
+     现版「件数/单价(元/件)/仓库」、v3版「数量/单价(元)」、更老版「价格/成本」，表头不在首行也认得 */
+  const NH=s=>String(s||'').trim().replace(/（/g,'(').replace(/）/g,')').toLowerCase();
+  function matchHead(row){
+    const c={};
+    (row||[]).forEach((raw,j)=>{
+      const h=NH(raw); if(!h) return;
+      const put=k=>{ if(c[k]===undefined) c[k]=j; };
+      if(/日期/.test(h)) put('date');
+      else if(/类型|出入库/.test(h)) put('type');
+      else if(/仓库/.test(h)) put('wh');
+      else if(/款式|商品|品名|款号|货号/.test(h)) put('name');
+      else if(/颜色/.test(h)) put('color');
+      else if(/每包/.test(h)) put('ppb');
+      else if(/包数/.test(h)) put('bags');
+      else if(/数量|件数/.test(h)) put('qty');
+      else if(/进价|成本/.test(h)) put('cost');
+      else if(/单价|成交价|售价|价格/.test(h)) put('price');
+      else if(/供应商/.test(h)) put('sup');
+      else if(/客户|商铺|往来/.test(h)) put('party');
+      else if(/备注|说明/.test(h)) put('note');
+    });
+    return (c.date!==undefined && c.type!==undefined && c.name!==undefined && c.qty!==undefined) ? c : null;
+  }
+  let C=null, hIdx=0;
+  for(let i=0;i<Math.min(6,rows.length);i++){
+    const c=matchHead(rows[i]);
+    if(c){ C=c; hIdx=i; break; }
+  }
+  if(!C) throw new Error('bad-header');
+  ['wh','ppb','sup','party'].forEach(k=>{ if(C[k]===undefined) C[k]=-1; });
   const records=[];
   const whs=db.warehouses.slice(), pts=db.parties.slice(), ppbCopy=Object.assign({},db.ppb);
   const whIds={}, ptIds={};
   let ts=Date.now()-rows.length*1000;
-  for(let i=1;i<rows.length;i++){
+  for(let i=hIdx+1;i<rows.length;i++){
     const r=rows[i];
     if(!r || !r[C.date]) continue;
     const type=String(r[C.type]||'').trim().indexOf('入')>=0?'in':'out';
