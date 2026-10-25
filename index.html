@@ -62,6 +62,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 .field{margin-bottom:13px}
 .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-weight:600}
 .field input,.field select{width:100%;border:1px solid var(--line);background:#fbfcfd;border-radius:11px;padding:12px 13px;font-size:16px;color:var(--ink);outline:none;font-family:inherit}
+.select-sim{width:100%;border:1px solid var(--line);background:#fbfcfd;border-radius:11px;padding:12px 13px;font-size:16px;color:var(--ink);outline:none;font-family:inherit;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:400}
+.select-sim:active{border-color:var(--brand);background:#fff}
+.select-sim.off{color:#98a0ab}
+.sort-list{max-height:44vh;overflow-y:auto;margin:8px 0 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.sort-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-bottom:1px solid var(--line)}
+.sort-item:last-child{border-bottom:none}
+.sort-item .n{font-size:15px;font-weight:600;color:var(--ink);word-break:break-all}
+.sort-item .r{font-size:12px;color:var(--sub);flex:none}
+.sort-item .ops{display:flex;gap:8px;flex:none}
+.sort-item .ops button{width:36px;height:32px;border:1px solid var(--line);background:#fbfcfd;border-radius:9px;font-size:15px;color:var(--ink);cursor:pointer}
+.sort-item .ops button:disabled{opacity:.3;cursor:default}
+.sort-item.pick{cursor:pointer}
+.sort-item.pick.on{background:var(--brand-soft)}
 .field input:focus,.field select:focus{border-color:var(--brand);background:#fff}
 .field input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .field input::-webkit-outer-spin-button,.field input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -193,6 +206,7 @@ input[type=file]{display:none}
       <input id="stockSearch" placeholder="搜款式名 / 颜色">
     </div>
     <div id="whBar" class="chip-bar"></div>
+    <div style="padding:6px 18px 0"><button class="btn ghost" id="skuSortBtn" style="width:100%;padding:9px;font-size:13px">⇅ 调整款式排序</button></div>
     <div style="padding:0 18px 8px;font-size:11px;color:var(--sub);line-height:1.6">上面一排可以切换仓库，每个仓名字后面的小字就是<b>这个仓库现在总共有多少包</b>。卖完（库存为 0）的款式不在这里显示，去底部「流水」页能查到它的入库出库记录，还能改能删。<b>点某一条款式</b>可以设置它「一包有多少件」，设了之后库存就按包显示。</div>
     <div class="list" id="stockList"></div>
   </main>
@@ -228,7 +242,7 @@ input[type=file]{display:none}
       <div class="field" id="whField"><label>仓库</label><select id="fWh"></select></div>
 
       <div class="field" id="nameField"><label>款式名称</label><input type="text" id="fName" placeholder="如：醋酸缎面衬衫"></div>
-      <div class="field" id="outPickField"><label>选择要出库的款式</label><select id="fOutPick"></select><div class="hint" id="outCostHint" style="display:none"></div></div>
+      <div class="field" id="outPickField"><label>选择要出库的款式</label><button type="button" class="select-sim" id="outPickBtn">请选择款式</button><div class="hint" id="outCostHint" style="display:none"></div></div>
       <div class="field" id="colorField"><label>颜色</label><input type="text" id="fColor" placeholder="如：米白"></div>
 
       <div class="field" id="ppbField"><label>每包多少件</label><input type="number" id="fPpb" inputmode="numeric" placeholder="如 100"><div class="hint" id="ppbHint" style="display:none"></div></div>
@@ -263,14 +277,16 @@ input[type=file]{display:none}
     <div id="partyListView">
       <div class="form-wrap">
         <div class="tabs-seg">
-          <button id="ptCustomer" class="active">客户（按包要货）</button>
-          <button id="ptShop">商铺（按件要货）</button>
+          <button id="ptCustomer" class="active">客户</button>
+          <button id="ptShop">商铺</button>
+          <button id="ptMat">货料商</button>
+          <button id="ptFac">加工厂</button>
         </div>
       </div>
       <div class="cards">
-        <div class="c brand"><div class="lab">应收合计</div><div class="val">¥<span id="pDueAll">0</span></div></div>
-        <div class="c white"><div class="lab">已收回</div><div class="val">¥<span id="pPaidAll">0</span></div></div>
-        <div class="c white"><div class="lab">还没收回</div><div class="val">¥<span id="pLeftAll">0</span></div></div>
+        <div class="c brand"><div class="lab" id="pLabDue">应收合计</div><div class="val">¥<span id="pDueAll">0</span></div></div>
+        <div class="c white"><div class="lab" id="pLabPaid">已收回</div><div class="val">¥<span id="pPaidAll">0</span></div></div>
+        <div class="c white"><div class="lab" id="pLabLeft">还没收回</div><div class="val">¥<span id="pLeftAll">0</span></div></div>
         <div class="c white"><div class="lab">对象数</div><div class="val"><span id="pCount">0</span><small>个</small></div></div>
       </div>
       <div class="recent-title">名单 <span class="count" id="partyCount"></span></div>
@@ -281,17 +297,19 @@ input[type=file]{display:none}
     <div id="partyDetailView" style="display:none">
       <div style="padding:14px 18px 4px"><button class="btn ghost" id="partyBack">← 返回名单</button></div>
       <div class="cards">
-        <div class="c brand"><div class="lab">应收（出货合计）</div><div class="val">¥<span id="pdDue">0</span></div></div>
-        <div class="c white"><div class="lab">已收回</div><div class="val">¥<span id="pdPaid">0</span></div></div>
-        <div class="c white"><div class="lab">还没收回</div><div class="val">¥<span id="pdLeft">0</span></div></div>
-        <div class="c white"><div class="lab">拿货</div><div class="val"><span id="pdQty">0</span><small id="pdUnit">包</small></div></div>
+        <div class="c brand"><div class="lab" id="pdLabDue">应收（出货合计）</div><div class="val">¥<span id="pdDue">0</span></div></div>
+        <div class="c white"><div class="lab" id="pdLabPaid">已收回</div><div class="val">¥<span id="pdPaid">0</span></div></div>
+        <div class="c white"><div class="lab" id="pdLabLeft">还没收回</div><div class="val">¥<span id="pdLeft">0</span></div></div>
+        <div class="c white"><div class="lab" id="pdLabQty">拿货</div><div class="val"><span id="pdQty">0</span><small id="pdUnit">包</small></div></div>
       </div>
-      <div class="section-h">出货明细</div>
+      <div class="section-h" id="pdOutH">出货明细</div>
       <div class="list" id="pdOutList"></div>
-      <div class="section-h">回款明细 <span style="font-weight:400;color:var(--sub)">（分批、不限次数）</span></div>
+      <div class="section-h" id="pdPayH">回款明细 <span style="font-weight:400;color:var(--sub)">（分批、不限次数）</span></div>
       <div class="list" id="pdPayList"></div>
       <div style="padding:4px 18px 24px">
         <button class="btn-primary" id="addPayBtn">记一笔回款</button>
+        <div style="height:8px"></div>
+        <button class="btn" id="addBuyBtn" style="display:none">记一笔买入 / 加工</button>
         <div style="height:8px"></div>
         <button class="btn" id="renamePartyBtn">改名 / 备注</button>
         <div style="height:8px"></div>
@@ -445,6 +463,33 @@ input[type=file]{display:none}
     </div>
   </div>
 
+  <!-- 款式排序 -->
+  <div class="sheet-mask" id="skuSortMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>调整款式排序</h3>
+      <div class="sub">用 ↑ ↓ 把款式挪到想要的位置，排在前面的在<b>库存页</b>和<b>出库选择</b>里都靠前显示。卖完的款式也能排。</div>
+      <div id="skuSortList" class="sort-list"></div>
+      <button class="btn" id="skuSortSave">保存排序</button>
+      <button class="btn ghost" id="skuSortClose">取消</button>
+    </div>
+  </div>
+
+  <!-- 出库：选择款式（可搜索） -->
+  <div class="sheet-mask" id="outPickMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>选择要出库的款式</h3>
+      <div class="sub" id="opSub">只列这个仓库里还有货的款式</div>
+      <div class="search" style="margin:10px 0 6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="opSearch" placeholder="搜款式名 / 颜色">
+      </div>
+      <div id="opList" class="sort-list"></div>
+      <button class="btn ghost" id="opClose">取消</button>
+    </div>
+  </div>
+
   <!-- 仓库管理：改名 / 删除已有仓库 -->
   <div class="sheet-mask" id="whManageMask">
     <div class="sheet">
@@ -473,13 +518,29 @@ input[type=file]{display:none}
   <div class="sheet-mask" id="payMask">
     <div class="sheet">
       <div class="grab"></div>
-      <h3>记一笔回款</h3>
+      <h3 id="payTitle">记一笔回款</h3>
       <div class="sub" id="paySub">分批、不定额都行，随时可以补记</div>
       <div class="field"><label>日期</label><input type="date" id="payDate"></div>
-      <div class="field"><label>本次收回（元）</label><input type="number" id="payAmt" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label id="payAmtLab">本次收回（元）</label><input type="number" id="payAmt" inputmode="decimal" placeholder="0"></div>
       <div class="field"><label>备注</label><input type="text" id="payNote" placeholder="选填，如：微信转账"></div>
       <button class="btn" id="paySave">保存回款</button>
       <button class="btn ghost" id="payCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 记一笔买入 / 加工（货料商、加工厂） -->
+  <div class="sheet-mask" id="venMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3 id="venTitle">记一笔买入</h3>
+      <div class="sub" id="venSub"></div>
+      <div class="field"><label>日期</label><input type="date" id="venDate"></div>
+      <div class="field"><label id="venDescLab">买了什么</label><input type="text" id="venDesc" placeholder="如：全棉布料 60 支白坯"></div>
+      <div class="field"><label>数量（选填）</label><input type="text" id="venQty" inputmode="text" placeholder="如 3 匹 / 500 米，可不填"></div>
+      <div class="field"><label>金额（元）</label><input type="number" id="venAmt" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>备注</label><input type="text" id="venNote" placeholder="选填"></div>
+      <button class="btn" id="venSave">保存</button>
+      <button class="btn ghost" id="venCancel">取消</button>
     </div>
   </div>
 
@@ -514,7 +575,8 @@ let priceMode = 'piece';    // piece | bag  单价录入方式
 
 /* 新建一套空账本 */
 function emptyDb(){
-  return { version:3, warehouses:[], ppb:{}, parties:[], payments:[], records:[] };
+  return { version:3, warehouses:[], ppb:{}, parties:[], payments:[], records:[],
+           skuOrder:[], venParties:[], venRecords:[], venPays:[] };
 }
 /* 结构校正：保证各字段类型正确（不补默认仓，缺仓库就是没有仓库） */
 function normalize(d){
@@ -538,6 +600,21 @@ function normalize(d){
     }
   });
   out.payments=out.payments.filter(p=>p && pids[p.partyId]);
+  /* 款式排序（"款名|颜色" 的顺序表，不在里面的按默认顺序排后面） */
+  out.skuOrder = Array.isArray(d.skuOrder) ? d.skuOrder.map(x=>String(x)) : [];
+  /* 货料商 / 加工厂往来（kind: mat=货料, fac=加工） */
+  out.venParties = Array.isArray(d.venParties) ? d.venParties
+    .filter(p=>p && p.id && (p.kind==='mat'||p.kind==='fac'))
+    .map(p=>({id:p.id, kind:p.kind, name:String(p.name||''), note:String(p.note||'')})) : [];
+  const vids={}; out.venParties.forEach(p=>{ vids[p.id]=1; });
+  out.venRecords = Array.isArray(d.venRecords) ? d.venRecords
+    .filter(r=>r && r.id && vids[r.pid] && (r.kind==='mat'||r.kind==='fac'))
+    .map(r=>({id:r.id, kind:r.kind, pid:r.pid, date:String(r.date||''), desc:String(r.desc||''),
+              qty:String(r.qty||''), amount:Number(r.amount)||0, note:String(r.note||''), ts:Number(r.ts)||Date.now()})) : [];
+  out.venPays = Array.isArray(d.venPays) ? d.venPays
+    .filter(r=>r && r.id && vids[r.pid] && (r.kind==='mat'||r.kind==='fac'))
+    .map(r=>({id:r.id, kind:r.kind, pid:r.pid, date:String(r.date||''),
+              amount:Number(r.amount)||0, note:String(r.note||''), ts:Number(r.ts)||Date.now()})) : [];
   return out;
 }
 
@@ -667,6 +744,29 @@ function buildLedgerWorkbook(){
   const ws3=XLSX.utils.aoa_to_sheet(orows);
   ws3['!cols']=[{wch:20},{wch:18}];
   XLSX.utils.book_append_sheet(wb,ws3,'总览');
+
+  // 表7 / 表8：货料往来、加工往来（付款行以「内容=付款」记录，导入时据此区分）
+  [['mat','货料往来','买入'],['fac','加工往来','加工']].forEach(function(cfg){
+    const kind=cfg[0], title=cfg[1], verb=cfg[2];
+    const recs=db.venRecords.filter(r=>r.kind===kind);
+    const pays=db.venPays.filter(r=>r.kind===kind);
+    const ps=db.venParties.filter(p=>p.kind===kind);
+    if(!recs.length && !pays.length && !ps.length) return;
+    const rows=[['日期','名称','内容','数量','金额(元)','备注']];
+    recs.sort((a,b)=>a.ts-b.ts).forEach(r=>{
+      rows.push([r.date, venName(r.pid), r.desc||verb, r.qty||'', r2(r.amount), r.note||'']);
+    });
+    pays.sort((a,b)=>a.ts-b.ts).forEach(r=>{
+      rows.push([r.date, venName(r.pid), '付款', '', r2(r.amount), r.note||'']);
+    });
+    ps.forEach(p=>{
+      const b=venBill(p.id);
+      rows.push(['', p.name, '小计（参考）', '', r2(b.due), '已付 '+r2(b.paid)+' / 未付 '+r2(b.left)]);
+    });
+    const wsv=XLSX.utils.aoa_to_sheet(rows);
+    wsv['!cols']=[{wch:12},{wch:16},{wch:18},{wch:14},{wch:12},{wch:22}];
+    XLSX.utils.book_append_sheet(wb,wsv,title);
+  });
   return wb;
 }
 function saveLedgerExcel(silent){
@@ -697,6 +797,11 @@ function setPpb(name,color,v){
 /* 件数 → 包数；包数显示保留两位小数（如 9.8 包） */
 function bagsOf(qty,ppb){ return (ppb>0)?(qty/ppb):0; }
 function fmtBags(n){ return (Math.round(n*100)/100).toLocaleString('zh-CN',{maximumFractionDigits:2}); }
+
+/* 款式自定义排序：db.skuOrder 存「款名|颜色」的顺序表；没登记的排后面，按出现先后 */
+function skuKeyOf(name,color){ return (name||'')+'|'+(color||''); }
+function skuRank(key){ const i=db.skuOrder.indexOf(key); return i<0?Number.MAX_SAFE_INTEGER:i; }
+function skuRankOf(name,color){ return skuRank(skuKeyOf(name,color)); }
 
 /* 分仓库存：仓库 × 款 × 色。返回 [{whId,name,color,key,qty,cost,lastIn}] */
 function stockByLoc(){
@@ -827,6 +932,8 @@ function renderStock(){
     if(!q) return true;
     return (s.name+' '+s.color).toLowerCase().indexOf(q)>=0;
   });
+  /* 按用户自定义顺序排（skuOrder 里越靠前显示越靠上，没登记的保持原顺序排后面） */
+  filtered.sort((a,b)=> skuRankOf(a.name,a.color)-skuRankOf(b.name,b.color));
   let cost=0,qty=0,soldAmt=0,skus=0;
   scoped.forEach(s=>{ if(s.qty<=0) return; cost += (isAll? s.cost : s.qty*s.lastIn); qty+=s.qty; skus++; });
   db.records.forEach(r=>{
@@ -1042,7 +1149,7 @@ function fillRecPickers(r){
   }
   const cs=db.parties.filter(p=>p.type==='customer');
   const ss=db.parties.filter(p=>p.type==='shop');
-  let h='<option value="">散客（不记入账单）</option>';
+  let h='<option value="">散客（旧记录，不记入账单）</option>';
   h+='<optgroup label="客户 · 按包要货">'+cs.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</optgroup>';
   h+='<optgroup label="商铺 · 按件要货">'+ss.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</optgroup>';
   const ps=document.getElementById('rParty');
@@ -1182,7 +1289,7 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 function todayStr(){ const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function refresh(){
   if(curWh!=='all' && !db.warehouses.some(w=>w.id===curWh)) curWh='all';  // 仓库被删了就回到全部
-  if(curPartyId && !db.parties.some(p=>p.id===curPartyId)) backParty();
+  if(curPartyId && !db.parties.some(p=>p.id===curPartyId) && !db.venParties.some(p=>p.id===curPartyId)) backParty();
   renderStock(); renderRecent(); renderReport(); renderLedger(); renderParty();
   // 正开着某个人的账单时，账单里的数字也要跟着变（记回款、删回款、改出库后立即生效）
   if(curPartyId) renderPartyDetail();
@@ -1215,43 +1322,93 @@ function fillWhPick(){
   sel.value = has(keep)?keep : (has(last)?last : db.warehouses[0].id);
   syncQtyHint();
 }
-/* 出库款式下拉：只列「当前所选仓库」里还有货的款式，选项已含颜色 */
+/* 出库款式选择：可搜索的弹层（不再用原生下拉）。
+   outPickVal 存「款名|颜色」，只在当前所选仓库还有货时有效 */
+let outPickVal='';
 function fillOutPick(){
-  const sel=document.getElementById('fOutPick');
-  if(!sel) return;
-  const keep=sel.value;
+  const btn=document.getElementById('outPickBtn');
+  if(!btn) return;
   const whId=document.getElementById('fWh').value||'';
-  const stocks=stockByLoc().filter(s=>s.qty>0 && s.whId===whId);
-  if(!stocks.length){ sel.innerHTML='<option value="">'+(db.warehouses.length?'这个仓库暂无库存':'请先建仓库并入库')+'</option>'; updateOutCostHint(); syncQtyHint(); return; }
-  sel.innerHTML='<option value="">请选择款式</option>'+stocks.map(s=>{
-    const ppb=ppbOf(s.name,s.color);
-    const show = ppb>0 ? (fmtBags(bagsOf(s.qty,ppb))+' 包') : (s.qty+' 件');
-    return '<option value="'+esc(s.name+'|'+s.color)+'" data-cost="'+s.lastIn+'" data-stock="'+s.qty+'">'+esc(s.name)+(s.color?' · '+esc(s.color):'')+'（剩 '+show+'）</option>';
-  }).join('');
-  if(keep && stocks.some(s=>(s.name+'|'+s.color)===keep)) sel.value=keep;  // 刷新时别把已选的款式冲掉
+  const stocks=outPickStocks(whId);
+  if(outPickVal && !stocks.some(s=>skuKeyOf(s.name,s.color)===outPickVal)) outPickVal='';
+  renderOutPickBtn();
   updateOutCostHint(); syncQtyHint();
 }
-/* 卖给谁：客户（按包）/ 商铺（按件）/ 散客 */
+function outPickStocks(whId){
+  return stockByLoc().filter(s=>s.qty>0 && s.whId===(whId||''))
+    .sort((a,b)=>skuRankOf(a.name,a.color)-skuRankOf(b.name,b.color));
+}
+function renderOutPickBtn(){
+  const btn=document.getElementById('outPickBtn');
+  if(!btn) return;
+  if(!outPickVal){ btn.textContent='请选择款式'; btn.classList.add('off'); return; }
+  const p=outPickVal.indexOf('|');
+  const name=p>=0?outPickVal.slice(0,p):outPickVal, color=p>=0?outPickVal.slice(p+1):'';
+  const whId=document.getElementById('fWh').value||'';
+  const s=stockByLoc().find(x=>x.whId===whId && x.name===name && x.color===color);
+  const ppb=ppbOf(name,color);
+  const show=s? (ppb>0? fmtBags(bagsOf(s.qty,ppb))+' 包' : fmt(s.qty)+' 件') : '';
+  btn.textContent=name+(color?' · '+color:'')+(show?('（剩 '+show+'）'):'');
+  btn.classList.remove('off');
+}
+/* 出库款式选择弹层 */
+const outPickMask=document.getElementById('outPickMask');
+let opQuery='';
+function openOutPick(){
+  opQuery='';
+  document.getElementById('opSearch').value='';
+  const whId=document.getElementById('fWh').value||'';
+  document.getElementById('opSub').textContent='只列「'+(whName(whId)||'本仓')+'」里还有货的款式，可搜索';
+  renderOutPickList();
+  outPickMask.classList.add('open');
+}
+function closeOutPick(){ outPickMask.classList.remove('open'); }
+function renderOutPickList(){
+  const box=document.getElementById('opList');
+  const q=opQuery.trim().toLowerCase();
+  const stocks=outPickStocks(document.getElementById('fWh').value||'')
+    .filter(s=>!q || (s.name+' '+s.color).toLowerCase().indexOf(q)>=0);
+  if(!stocks.length){
+    box.innerHTML='<div class="empty" style="padding:20px">'+(q?'没有匹配的款式':'这个仓库暂无库存')+'</div>';
+    return;
+  }
+  box.innerHTML=stocks.map(s=>{
+    const ppb=ppbOf(s.name,s.color);
+    const show=ppb>0? fmtBags(bagsOf(s.qty,ppb))+' 包' : fmt(s.qty)+' 件';
+    const on = outPickVal===skuKeyOf(s.name,s.color);
+    return '<div class="sort-item pick'+(on?' on':'')+'" data-k="'+esc(skuKeyOf(s.name,s.color))+'">'+
+      '<div class="n">'+esc(s.name)+(s.color?' <span style="color:var(--sub);font-weight:400">· '+esc(s.color)+'</span>':'')+'</div>'+
+      '<div class="r">剩 '+show+'</div></div>';
+  }).join('');
+  box.querySelectorAll('.sort-item[data-k]').forEach(el=>el.addEventListener('click',()=>{
+    outPickVal=el.dataset.k;
+    renderOutPickBtn(); updateOutCostHint(); syncQtyHint();
+    closeOutPick();
+  }));
+}
+document.getElementById('outPickBtn').addEventListener('click',openOutPick);
+document.getElementById('opClose').addEventListener('click',closeOutPick);
+outPickMask.addEventListener('click',e=>{ if(e.target===outPickMask) closeOutPick(); });
+document.getElementById('opSearch').addEventListener('input',e=>{ opQuery=e.target.value; renderOutPickList(); });
+/* 卖给谁：客户（按包）/ 商铺（按件）——必选，没有散客 */
 function fillPartyPick(){
   const sel=document.getElementById('fParty');
   if(!sel) return;
   const keep=sel.value;
   const cs=db.parties.filter(p=>p.type==='customer');
   const ss=db.parties.filter(p=>p.type==='shop');
-  let h='<option value="">散客（不记入账单）</option>';
+  let h='<option value="">请选择（必选）</option>';
   h+='<optgroup label="客户 · 按包要货">'+cs.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'<option value="__new_customer">＋ 新增客户…</option></optgroup>';
   h+='<optgroup label="商铺 · 按件要货">'+ss.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'<option value="__new_shop">＋ 新增商铺…</option></optgroup>';
   sel.innerHTML=h;
   if(keep && db.parties.some(p=>p.id===keep)) sel.value=keep;
 }
-/* 当前上下文的每包件数：入库看输入框，出库看选中款式 */
+/* 当前上下文的每包件数：入库看输入框，出库看选中的款式 */
 function curPpb(){
   if(mode==='in') return Math.floor(Number(document.getElementById('fPpb').value)||0);
-  const sel=document.getElementById('fOutPick');
-  const opt=sel.options[sel.selectedIndex];
-  if(!opt||!opt.value) return 0;
-  const p=String(opt.value).split('|');
-  return ppbOf(p[0],p[1]||'');
+  if(!outPickVal) return 0;
+  const p=outPickVal.indexOf('|');
+  return ppbOf(p>=0?outPickVal.slice(0,p):outPickVal, p>=0?outPickVal.slice(p+1):'');
 }
 /* 数量 / 价格 的实时换算提示 */
 function syncQtyHint(){
@@ -1351,7 +1508,6 @@ document.getElementById('fPpb').addEventListener('input',()=>{ syncQtyHint(); sy
 document.getElementById('fBags').addEventListener('input',syncQtyHint);
 document.getElementById('fQty').addEventListener('input',syncQtyHint);
 document.getElementById('fPrice').addEventListener('input',syncPriceHint);
-document.getElementById('fOutPick').addEventListener('change',()=>{ updateOutCostHint(); syncQtyHint(); syncPriceHint(); });
 document.getElementById('fParty').addEventListener('change',()=>{
   const v=document.getElementById('fParty').value;
   if(v==='__new_customer'){ document.getElementById('fParty').value=''; openPartyEdit(null,'customer'); }
@@ -1363,15 +1519,15 @@ function updateOutCostHint(){
   const hint=document.getElementById('outCostHint');
   if(!hint) return;
   if(mode!=='out'){ hint.style.display='none'; return; }
-  const sel=document.getElementById('fOutPick');
-  const opt=sel.options[sel.selectedIndex];
-  if(!opt || !opt.value){ hint.style.display='none'; return; }
-  const p=String(opt.value).split('|');
+  if(!outPickVal){ hint.style.display='none'; return; }
+  const p=outPickVal.indexOf('|');
+  const name=p>=0?outPickVal.slice(0,p):outPickVal, color=p>=0?outPickVal.slice(p+1):'';
   const whId=document.getElementById('fWh').value||'';
-  const avail=availAt(whId,p[0],p[1]||'',null);
-  const ppb=ppbOf(p[0],p[1]||'');
+  const avail=availAt(whId,name,color,null);
+  const ppb=ppbOf(name,color);
+  const cost=costAt(whId,name,color)||0;
   hint.style.display='block';
-  hint.textContent='进价 ¥'+fmt(Number(opt.dataset.cost)||0)+'/件 · '+(whName(whId)||'本仓')+'可用 '+avail+' 件'+(ppb>0?('（约 '+fmtBags(bagsOf(avail,ppb))+' 包）'):'');
+  hint.textContent='进价 ¥'+fmt(cost)+'/件 · '+(whName(whId)||'本仓')+'可用 '+avail+' 件'+(ppb>0?('（约 '+fmtBags(bagsOf(avail,ppb))+' 包）'):'');
 }
 
 function saveRecord(){
@@ -1413,20 +1569,17 @@ function saveRecord(){
     rec={ id:uid(), type:'in', date, name, color, price, supplier, note, qty,
           ts:Date.now(), warehouseId:whId, ppb:ppb, bags:bags };
   } else {
-    const sel=document.getElementById('fOutPick');
-    const opt=sel.options[sel.selectedIndex];
-    if(!opt || !opt.value){ toast('请选择要出库的款式'); return; }
-    const parts=String(opt.value).split('|');
-    const name=parts[0], color=parts[1]||'';
+    if(!outPickVal){ toast('请选择要出库的款式'); return; }
+    const pi=outPickVal.indexOf('|');
+    const name=pi>=0?outPickVal.slice(0,pi):outPickVal, color=pi>=0?outPickVal.slice(pi+1):'';
     const avail=availAt(whId,name,color,null);
     if(qty>avail){ toast('库存不足，「'+(whName(whId)||'本仓')+'」当前仅 '+avail+' 件'); return; }
     const cost=costAt(whId,name,color)||0;
     const pVal=document.getElementById('fParty').value||'';
+    if(!pVal){ toast('请选择卖给谁'); return; }
     let partyType='none', partyId='';
-    if(pVal){
-      const p=db.parties.find(x=>x.id===pVal);
-      if(p){ partyType=p.type; partyId=p.id; }
-    }
+    const p=db.parties.find(x=>x.id===pVal);
+    if(p){ partyType=p.type; partyId=p.id; }
     rec={ id:uid(), type:'out', date, name, color, price, cost, note, qty,
           ts:Date.now(), warehouseId:whId, ppb:ppb, bags:bags, partyType, partyId };
   }
@@ -1449,6 +1602,55 @@ function saveRecord(){
 
 /* ---------- 搜索 ---------- */
 document.getElementById('stockSearch').addEventListener('input',e=>{ stockQuery=e.target.value; renderStock(); });
+
+/* ---------- 款式排序 ---------- */
+const skuSortMask=document.getElementById('skuSortMask');
+let sortWork=[];
+function allSkuKeys(){
+  const seen={}, first=[];
+  db.records.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{
+    if(!r.name) return;
+    const k=skuKeyOf(r.name,r.color);
+    if(!seen[k]){ seen[k]=1; first.push(k); }
+  });
+  const final=[];
+  db.skuOrder.forEach(k=>{ if(seen[k]===1){ final.push(k); seen[k]=2; } });
+  first.forEach(k=>{ if(seen[k]===1) final.push(k); });
+  return final;
+}
+function renderSkuSort(){
+  const box=document.getElementById('skuSortList');
+  if(!sortWork.length){
+    box.innerHTML='<div class="empty" style="padding:20px">还没有任何款式，先去记一笔入库</div>';
+    return;
+  }
+  box.innerHTML=sortWork.map((k,i)=>{
+    const p=k.indexOf('|');
+    const name=p>=0?k.slice(0,p):k, color=p>=0?k.slice(p+1):'';
+    return '<div class="sort-item"><div class="n">'+esc(name)+(color?' <span style="color:var(--sub);font-weight:400">· '+esc(color)+'</span>':'')+'</div>'+
+      '<div class="ops">'+
+      '<button data-mv="up" data-i="'+i+'"'+(i===0?' disabled':'')+'>↑</button>'+
+      '<button data-mv="down" data-i="'+i+'"'+(i===sortWork.length-1?' disabled':'')+'>↓</button>'+
+      '</div></div>';
+  }).join('');
+  box.querySelectorAll('button[data-mv]').forEach(b=>b.addEventListener('click',()=>{
+    const i=Number(b.dataset.i), j=i+(b.dataset.mv==='up'?-1:1);
+    if(j<0||j>=sortWork.length) return;
+    const t=sortWork[i]; sortWork[i]=sortWork[j]; sortWork[j]=t;
+    renderSkuSort();
+  }));
+}
+function openSkuSort(){ sortWork=allSkuKeys(); renderSkuSort(); skuSortMask.classList.add('open'); }
+function closeSkuSort(){ skuSortMask.classList.remove('open'); }
+document.getElementById('skuSortBtn').addEventListener('click',openSkuSort);
+document.getElementById('skuSortClose').addEventListener('click',closeSkuSort);
+skuSortMask.addEventListener('click',e=>{ if(e.target===skuSortMask) closeSkuSort(); });
+document.getElementById('skuSortSave').addEventListener('click',()=>{
+  db.skuOrder=sortWork.slice();
+  cache(); if(autoSave) saveLedgerFile(true);
+  closeSkuSort(); refresh();
+  toast('排序已保存');
+});
 
 /* ---------- 库存项：修改 / 删除 ---------- */
 let curSku=null;
@@ -1628,8 +1830,23 @@ function delWh(id){
 /* ---------- 往来对象：新增 / 改名 ---------- */
 let peEditId=null, peEditType='customer';
 const partyMask=document.getElementById('partyMask');
+let peVenKind=null; /* 本轮编辑的是不是货料商/加工厂（mat/fac），客户/商铺为 null */
 function openPartyEdit(id,type){
   peEditId=id||null;
+  /* 货料商 / 加工厂走同一个弹层，存到 venParties */
+  if(type==='mat'||type==='fac'||(id && db.venParties.some(x=>x.id===id))){
+    const p=id?db.venParties.find(x=>x.id===id):null;
+    peVenKind = p?p.kind:type;
+    const isMat=peVenKind==='mat';
+    document.getElementById('peTitle').textContent = (id?'编辑':'新增')+(isMat?'货料商':'加工厂');
+    document.getElementById('peSub').textContent = isMat?'布料、辅料等货料的卖家，按买入记账':'帮你加工货物的厂，按加工费记账';
+    document.getElementById('peName').value = p?p.name:'';
+    document.getElementById('peNote').value = p?(p.note||''):'';
+    partyMask.classList.add('open');
+    setTimeout(()=>{ try{ document.getElementById('peName').focus(); }catch(e){} },150);
+    return;
+  }
+  peVenKind=null;
   const p=id?db.parties.find(x=>x.id===id):null;
   peEditType = p?p.type:(type||'customer');
   const isC = peEditType==='customer';
@@ -1640,13 +1857,24 @@ function openPartyEdit(id,type){
   partyMask.classList.add('open');
   setTimeout(()=>{ try{ document.getElementById('peName').focus(); }catch(e){} },150);
 }
-function closePartyEdit(){ partyMask.classList.remove('open'); peEditId=null; }
+function closePartyEdit(){ partyMask.classList.remove('open'); peEditId=null; peVenKind=null; }
 document.getElementById('peCancel').addEventListener('click',closePartyEdit);
 document.getElementById('partyMask').addEventListener('click',e=>{ if(e.target===partyMask) closePartyEdit(); });
 document.getElementById('peSave').addEventListener('click',()=>{
   const name=document.getElementById('peName').value.trim();
   if(!name){ toast('请填写名称'); return; }
   const note=document.getElementById('peNote').value.trim();
+  if(peVenKind){
+    if(peEditId){
+      const p=db.venParties.find(x=>x.id===peEditId);
+      if(p){ p.name=name; p.note=note; }
+    } else {
+      db.venParties.push({id:uid(),kind:peVenKind,name:name,note:note,ts:Date.now()});
+    }
+    cache(); if(autoSave) saveLedgerFile(true);
+    closePartyEdit(); refresh(); toast('已保存「'+name+'」');
+    return;
+  }
   if(peEditId){
     const p=db.parties.find(x=>x.id===peEditId);
     if(p){ p.name=name; p.note=note; }
@@ -1658,25 +1886,79 @@ document.getElementById('peSave').addEventListener('click',()=>{
 });
 
 /* ---------- 往来页：名单 + 账单 ---------- */
+/* partyTab: customer=客户 shop=商铺 mat=货料商 fac=加工厂（后两个是「买入/加工欠款」往来） */
+const PT_TABS={customer:'ptCustomer',shop:'ptShop',mat:'ptMat',fac:'ptFac'};
+function isVenTab(){ return partyTab==='mat'||partyTab==='fac'; }
+function setLab(id,txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
 function setPartyTab(t){
   partyTab=t;
-  document.getElementById('ptCustomer').classList.toggle('active',t==='customer');
-  document.getElementById('ptShop').classList.toggle('active',t==='shop');
+  Object.keys(PT_TABS).forEach(k=>{
+    const el=document.getElementById(PT_TABS[k]);
+    if(el) el.classList.toggle('active',k===t);
+  });
   renderParty();
 }
 document.getElementById('ptCustomer').addEventListener('click',()=>setPartyTab('customer'));
 document.getElementById('ptShop').addEventListener('click',()=>setPartyTab('shop'));
+document.getElementById('ptMat').addEventListener('click',()=>setPartyTab('mat'));
+document.getElementById('ptFac').addEventListener('click',()=>setPartyTab('fac'));
 document.getElementById('addPartyBtn').addEventListener('click',()=>openPartyEdit(null,partyTab));
 document.getElementById('partyBack').addEventListener('click',backParty);
 document.getElementById('renamePartyBtn').addEventListener('click',()=>{ if(curPartyId) openPartyEdit(curPartyId); });
 document.getElementById('addPayBtn').addEventListener('click',openPayAdd);
+document.getElementById('addBuyBtn').addEventListener('click',openVenAdd);
+
+/* 货料商 / 加工厂：某对象的应付 / 已付 / 余额（ven = supplier & factory ledger） */
+function venName(pid){ const p=db.venParties.find(x=>x.id===pid); return p?p.name:''; }
+function venBill(pid){
+  const due=db.venRecords.filter(r=>r.pid===pid).reduce((a,r)=>a+(Number(r.amount)||0),0);
+  const paid=db.venPays.filter(r=>r.pid===pid).reduce((a,r)=>a+(Number(r.amount)||0),0);
+  const qty=db.venRecords.filter(r=>r.pid===pid).reduce((a,r)=>a+(Number(r.qty)||0),0);
+  return {due:due, paid:paid, left:due-paid, qty:qty};
+}
+function venLabel(){ return partyTab==='mat' ? {one:'货料商', verb:'买入', pay:'付款'} : {one:'加工厂', verb:'加工', pay:'付款'}; }
 
 function renderParty(){
+  const g=id=>document.getElementById(id);
+  if(isVenTab()){
+    const L=venLabel();
+    setLab('pLabDue', L.verb+'合计（应付）');
+    setLab('pLabPaid','已支付');
+    setLab('pLabLeft','还没支付');
+    const list=db.venParties.filter(p=>p.kind===partyTab);
+    let dueAll=0,paidAll=0;
+    list.forEach(p=>{ const b=venBill(p.id); dueAll+=b.due; paidAll+=b.paid; });
+    if(g('pDueAll')) g('pDueAll').textContent=fmt(dueAll);
+    if(g('pPaidAll')) g('pPaidAll').textContent=fmt(paidAll);
+    if(g('pLeftAll')) g('pLeftAll').textContent=fmt(dueAll-paidAll);
+    if(g('pCount')) g('pCount').textContent=list.length;
+    const cnt=document.getElementById('partyCount'); if(cnt) cnt.textContent=list.length+' 个';
+    const box=document.getElementById('partyList');
+    if(!box) return;
+    if(!list.length){
+      box.innerHTML='<div class="empty"><div class="big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>还没有'+L.one+'<br>点下面「新增对象」加一个</div>';
+      return;
+    }
+    box.innerHTML=list.map(p=>{
+      const b=venBill(p.id);
+      const leftTxt = b.left>0.005 ? ('欠 ¥'+fmt(b.left)) : '已结清';
+      const cls = b.left>0.005 ? 'owe' : 'clear';
+      return '<div class="item" data-pid="'+esc(p.id)+'" style="cursor:pointer">'+
+        '<div class="body"><div class="name">'+esc(p.name)+'</div>'+
+        '<div class="meta">'+L.verb+' '+db.venRecords.filter(r=>r.pid===p.id).length+' 次 · 合计 ¥'+fmt(b.due)+'</div></div>'+
+        '<div class="right"><div class="stock '+cls+'" style="font-size:15px">'+leftTxt+'</div><div class="cap">已付 ¥'+fmt(b.paid)+'</div></div>'+
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd3de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m9 18 6-6-6-6"/></svg></div>';
+    }).join('');
+    box.querySelectorAll('.item[data-pid]').forEach(el=>{
+      el.addEventListener('click',()=>openParty(el.dataset.pid));
+    });
+    return;
+  }
+  setLab('pLabDue','应收合计'); setLab('pLabPaid','已收回'); setLab('pLabLeft','还没收回');
   const isC = partyTab==='customer';
   const list=db.parties.filter(p=>p.type===partyTab);
   let dueAll=0,paidAll=0;
   list.forEach(p=>{ const b=partyBill(p.id); dueAll+=b.due; paidAll+=b.paid; });
-  const g=id=>document.getElementById(id);
   if(g('pDueAll')) g('pDueAll').textContent=fmt(dueAll);
   if(g('pPaidAll')) g('pPaidAll').textContent=fmt(paidAll);
   if(g('pLeftAll')) g('pLeftAll').textContent=fmt(dueAll-paidAll);
@@ -1717,6 +1999,13 @@ function backParty(){
   renderParty();
 }
 function renderPartyDetail(){
+  const b0=document.getElementById('addBuyBtn');
+  if(isVenTab()){ if(b0) b0.style.display=''; renderVenDetail(); return; }
+  if(b0) b0.style.display='none';
+  setLab('pdLabDue','应收（出货合计）'); setLab('pdLabPaid','已收回'); setLab('pdLabLeft','还没收回'); setLab('pdLabQty','拿货');
+  document.getElementById('addPayBtn').textContent='记一笔回款';
+  document.getElementById('pdOutH').textContent='出货明细';
+  document.getElementById('pdPayH').innerHTML='回款明细 <span style="font-weight:400;color:var(--sub)">（分批、不限次数）</span>';
   const p=db.parties.find(x=>x.id===curPartyId);
   if(!p){ backParty(); return; }
   const b=partyBill(p.id);
@@ -1759,8 +2048,78 @@ function renderPartyDetail(){
     });
   });
 }
+/* 货料商 / 加工厂的账单详情 */
+function renderVenDetail(){
+  const p=db.venParties.find(x=>x.id===curPartyId);
+  if(!p){ backParty(); return; }
+  const isMat=p.kind==='mat';
+  const L={one:isMat?'货料商':'加工厂', verb:isMat?'买入':'加工'};
+  const b=venBill(p.id);
+  setLab('pdLabDue', L.verb+'合计（应付）');
+  setLab('pdLabPaid','已支付');
+  setLab('pdLabLeft','还没支付');
+  setLab('pdLabQty', L.verb+'次数');
+  document.getElementById('pdDue').textContent=fmt(b.due);
+  document.getElementById('pdPaid').textContent=fmt(b.paid);
+  document.getElementById('pdLeft').textContent=fmt(b.left);
+  document.getElementById('pdUnit').textContent='次';
+  document.getElementById('pdQty').textContent=db.venRecords.filter(r=>r.pid===p.id).length;
+  const leftEl=document.getElementById('pdLeft');
+  if(leftEl) leftEl.style.color = b.left>0.005?'':'var(--good)';
+  document.getElementById('addPayBtn').textContent='记一笔付款';
+  document.getElementById('pdOutH').textContent=L.verb+'明细';
+  document.getElementById('pdPayH').innerHTML='付款明细 <span style="font-weight:400;color:var(--sub)">（分批、不限次数）</span>';
+  // 买入 / 加工明细
+  const recs=db.venRecords.filter(r=>r.pid===p.id).sort((a,b)=>b.ts-a.ts);
+  const ob=document.getElementById('pdOutList');
+  ob.innerHTML = recs.length ? recs.map(r=>{
+    return '<div class="mini"><div class="b"><div class="t1">'+esc(r.desc||(isMat?'买入':'加工'))+'</div>'+
+      '<div class="t2">'+fmtDate(r.date)+(r.qty?(' · '+esc(r.qty)):'')+(r.note?(' · '+esc(r.note)):'')+'</div></div>'+
+      '<div class="amt" style="display:flex;align-items:center;gap:8px">¥'+fmt(r.amount)+
+      '<button class="del" data-vrec="'+esc(r.id)+'">删除</button></div></div>';
+  }).join('') : '<div class="empty" style="padding:22px 10px">还没有'+L.verb+'记录，点下面「记一笔'+L.verb+'」</div>';
+  ob.querySelectorAll('button[data-vrec]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=btn.dataset.vrec;
+      if(!confirm('确定删除这条'+L.verb+'记录吗？欠款会跟着重算。')) return;
+      db.venRecords=db.venRecords.filter(x=>x.id!==id);
+      cache(); if(autoSave) saveLedgerFile(true);
+      refresh(); toast('已删除该记录');
+    });
+  });
+  // 付款明细
+  const pays=db.venPays.filter(x=>x.pid===p.id).sort((a,b)=>b.ts-a.ts);
+  const pb=document.getElementById('pdPayList');
+  pb.innerHTML = pays.length ? pays.map(x=>{
+    return '<div class="mini"><div class="b"><div class="t1">¥'+fmt(x.amount)+'</div>'+
+      '<div class="t2">'+fmtDate(x.date)+(x.note?(' · '+esc(x.note)):'')+'</div></div>'+
+      '<button class="del" data-pay="'+esc(x.id)+'">删除</button></div>';
+  }).join('') : '<div class="empty" style="padding:22px 10px">还没有付款记录</div>';
+  pb.querySelectorAll('button[data-pay]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=btn.dataset.pay;
+      if(!confirm('确定删除这笔付款吗？')) return;
+      db.venPays=db.venPays.filter(x=>x.id!==id);
+      cache(); if(autoSave) saveLedgerFile(true);
+      refresh(); toast('已删除该付款');
+    });
+  });
+}
 /* 删除对象：有欠款没结清就不让删 */
 document.getElementById('delPartyBtn').addEventListener('click',()=>{
+  if(isVenTab()){
+    const p=db.venParties.find(x=>x.id===curPartyId);
+    if(!p) return;
+    const b=venBill(p.id);
+    if(b.left>0.005){ toast('还有 ¥'+fmt(b.left)+' 没付清，结清后才能删除'); return; }
+    if(!confirm('确定删除「'+p.name+'」吗？\n名下的'+(p.kind==='mat'?'买入':'加工')+'记录和付款记录会一并删除。')) return;
+    db.venRecords=db.venRecords.filter(x=>x.pid!==p.id);
+    db.venPays=db.venPays.filter(x=>x.pid!==p.id);
+    db.venParties=db.venParties.filter(x=>x.id!==p.id);
+    cache(); if(autoSave) saveLedgerFile(true);
+    backParty(); toast('已删除');
+    return;
+  }
   const p=db.parties.find(x=>x.id===curPartyId);
   if(!p) return;
   const b=partyBill(p.id);
@@ -1773,12 +2132,28 @@ document.getElementById('delPartyBtn').addEventListener('click',()=>{
   backParty(); toast('已删除，出货记录已转为散客');
 });
 
-/* ---------- 回款 ---------- */
+/* ---------- 回款 / 付款（货料商、加工厂共用这个弹层，标签随对象变） ---------- */
 const payMask=document.getElementById('payMask');
 function openPayAdd(){
+  if(isVenTab()){
+    const p=db.venParties.find(x=>x.id===curPartyId);
+    if(!p) return;
+    const b=venBill(p.id);
+    document.getElementById('payTitle').textContent='记一笔付款';
+    document.getElementById('payAmtLab').textContent='本次支付（元）';
+    document.getElementById('paySub').textContent='「'+p.name+'」目前还没支付 ¥'+fmt(b.left);
+    document.getElementById('payDate').value=todayStr();
+    document.getElementById('payAmt').value='';
+    document.getElementById('payNote').value='';
+    payMask.classList.add('open');
+    setTimeout(()=>{ try{ document.getElementById('payAmt').focus(); }catch(e){} },150);
+    return;
+  }
   const p=db.parties.find(x=>x.id===curPartyId);
   if(!p) return;
   const b=partyBill(p.id);
+  document.getElementById('payTitle').textContent='记一笔回款';
+  document.getElementById('payAmtLab').textContent='本次收回（元）';
   document.getElementById('paySub').textContent='「'+p.name+'」目前还没收回 ¥'+fmt(b.left);
   document.getElementById('payDate').value=todayStr();
   document.getElementById('payAmt').value='';
@@ -1791,7 +2166,19 @@ document.getElementById('payCancel').addEventListener('click',closePay);
 document.getElementById('payMask').addEventListener('click',e=>{ if(e.target===payMask) closePay(); });
 document.getElementById('paySave').addEventListener('click',()=>{
   const amt=Number(document.getElementById('payAmt').value);
-  if(!(amt>0)){ toast('请填写收回金额'); return; }
+  if(!(amt>0)){ toast('请填写金额'); return; }
+  if(isVenTab()){
+    const p=db.venParties.find(x=>x.id===curPartyId);
+    if(!p) return;
+    db.venPays.push({
+      id:uid(), kind:p.kind, pid:p.id,
+      date:document.getElementById('payDate').value||todayStr(),
+      amount:amt, note:document.getElementById('payNote').value.trim(), ts:Date.now()
+    });
+    cache(); if(autoSave) saveLedgerFile(true);
+    closePay(); refresh(); toast('已记付款 ¥'+fmt(amt));
+    return;
+  }
   db.payments.push({
     id:uid(), partyId:curPartyId,
     date:document.getElementById('payDate').value||todayStr(),
@@ -1799,6 +2186,44 @@ document.getElementById('paySave').addEventListener('click',()=>{
   });
   cache(); if(autoSave) saveLedgerFile(true);
   closePay(); refresh(); toast('已记回款 ¥'+fmt(amt));
+});
+
+/* ---------- 记一笔买入 / 加工 ---------- */
+const venMask=document.getElementById('venMask');
+function openVenAdd(){
+  const p=db.venParties.find(x=>x.id===curPartyId);
+  if(!p) return;
+  const isMat=p.kind==='mat';
+  document.getElementById('venTitle').textContent=isMat?'记一笔买入':'记一笔加工';
+  document.getElementById('venSub').textContent='对象：「'+p.name+'」';
+  document.getElementById('venDescLab').textContent=isMat?'买了什么':'做了什么';
+  document.getElementById('venDate').value=todayStr();
+  document.getElementById('venDesc').value='';
+  document.getElementById('venQty').value='';
+  document.getElementById('venAmt').value='';
+  document.getElementById('venNote').value='';
+  venMask.classList.add('open');
+  setTimeout(()=>{ try{ document.getElementById('venDesc').focus(); }catch(e){} },150);
+}
+function closeVenAdd(){ venMask.classList.remove('open'); }
+document.getElementById('venCancel').addEventListener('click',closeVenAdd);
+venMask.addEventListener('click',e=>{ if(e.target===venMask) closeVenAdd(); });
+document.getElementById('venSave').addEventListener('click',()=>{
+  const p=db.venParties.find(x=>x.id===curPartyId);
+  if(!p) return;
+  const isMat=p.kind==='mat';
+  const desc=document.getElementById('venDesc').value.trim();
+  const amt=Number(document.getElementById('venAmt').value);
+  if(!(amt>0)){ toast('请填写金额'); return; }
+  db.venRecords.push({
+    id:uid(), kind:p.kind, pid:p.id,
+    date:document.getElementById('venDate').value||todayStr(),
+    desc:desc, qty:document.getElementById('venQty').value.trim(),
+    amount:amt, note:document.getElementById('venNote').value.trim(), ts:Date.now()
+  });
+  cache(); if(autoSave) saveLedgerFile(true);
+  closeVenAdd(); refresh();
+  toast('已记录 ¥'+fmt(amt)+(desc?('（'+desc+'）'):''));
 });
 
 /* ---------- 报表：账本文件与备份 ---------- */
@@ -1934,7 +2359,40 @@ function parseExcelLedger(buf){
     ts+=1000;
   }
   if(!records.length) throw new Error('no-records');
-  return { records:records, warehouses:whs, parties:pts, ppb:ppbCopy };
+  /* 货料往来 / 加工往来：有这两张表就一起读回（老账本没有就跳过） */
+  const ven={parties:[],records:[],pays:[]};
+  [['货料往来','mat'],['加工往来','fac']].forEach(cfg=>{
+    const t=cfg[0], kind=cfg[1];
+    const vs=wb.Sheets[t];
+    if(!vs) return;
+    const vrows=XLSX.utils.sheet_to_json(vs,{header:1,defval:''});
+    if(!vrows.length) return;
+    const heads=(vrows[0]||[]).map(x=>String(x||'').trim());
+    const ci=n=>heads.indexOf(n);
+    const cDate=ci('日期'), cName=ci('名称'), cContent=ci('内容'), cQty=ci('数量'), cAmt=ci('金额(元)'), cNote=ci('备注');
+    for(let i=1;i<vrows.length;i++){
+      const r=vrows[i]; if(!r) continue;
+      const nm=String(r[cName]||'').trim();
+      const amt=Number(r[cAmt])||0;
+      if(!nm || !(amt>0)) continue;
+      if(!ven.ids) ven.ids={};
+      let p=ven.ids[nm];
+      if(!p){
+        const ex=ven.parties.find(x=>x.name===nm) || db.venParties.find(x=>x.kind===kind && x.name===nm);
+        if(ex) p=ex; else { p={id:uid(),kind:kind,name:nm,note:''}; ven.parties.push(p); }
+        ven.ids[nm]=p;
+      }
+      const content=String(r[cContent]||'').trim();
+      if(/小计/.test(content)) continue;  // 导出时的小计参考行，不导入
+      if(content==='付款'){
+        ven.pays.push({id:uid(),kind:kind,pid:p.id,date:String(r[cDate]||''),amount:amt,note:String(r[cNote]||'').trim(),ts:Date.now()+i});
+      } else {
+        ven.records.push({id:uid(),kind:kind,pid:p.id,date:String(r[cDate]||''),desc:content,qty:String(r[cQty]||'').trim(),amount:amt,note:String(r[cNote]||'').trim(),ts:Date.now()+i});
+      }
+    }
+  });
+  return { records:records, warehouses:whs, parties:pts, ppb:ppbCopy,
+           venParties:ven.parties, venRecords:ven.records, venPays:ven.pays };
 }
 document.getElementById('csvBtn').addEventListener('click',()=>{
   try{
