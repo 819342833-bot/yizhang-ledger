@@ -186,6 +186,7 @@ input[type=file]{display:none}
 .mini .t2{font-size:12px;color:var(--sub);margin-top:2px}
 .mini .amt{font-size:15px;font-weight:800;flex:none}
 .mini .del{flex:none;border:none;background:var(--bad-soft);color:var(--bad);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.mini .del.edit{background:var(--brand-soft);color:var(--brand-deep)}
 .owe{color:var(--bad)} .clear{color:var(--good)}
 /* 引导建仓 */
 .guide{background:var(--brand-soft);border:1px solid #cddcff;border-radius:14px;margin:4px 18px 12px;padding:16px;text-align:center}
@@ -583,9 +584,26 @@ input[type=file]{display:none}
     </div>
   </div>
 
-  <!-- 记一笔买入 / 加工（货料商、加工厂） -->
-  <div class="sheet-mask" id="venMask">
+  <!-- 修改往来记录（回款 / 付款 / 买入 / 加工 通用） -->
+  <div class="sheet-mask" id="pEditMask">
     <div class="sheet">
+      <div class="grab"></div>
+      <h3 id="pEditTitle">修改记录</h3>
+      <div class="sub">改成对的数字，欠款 / 应收会自动重算</div>
+      <div class="field"><label>日期</label><input type="date" id="peDate"></div>
+      <div class="field" id="peDescField" style="display:none"><label id="peDescLab">内容</label><input type="text" id="peDesc"></div>
+      <div class="field" id="peQtyField" style="display:none"><label>数量（选填，不填按 1 算）</label><input type="number" id="peQty" inputmode="decimal" placeholder="如 500"></div>
+      <div class="field" id="pePriceField" style="display:none"><label>单价（元）</label><input type="number" id="pePrice" inputmode="decimal" placeholder="0"></div>
+      <div class="ven-total" id="peTotalWrap" style="display:none"><div class="lab">总金额（数量 × 单价）</div><div class="val" id="peTotal">¥0</div></div>
+      <div class="field" id="peAmtField" style="display:none"><label id="peAmtLab">金额（元）</label><input type="number" id="peAmt" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>备注</label><input type="text" id="peNote" placeholder="选填"></div>
+      <button class="btn" id="pEditSave">保存修改</button>
+      <button class="btn ghost" id="pEditCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 记一笔买入 / 加工（货料商、加工厂） -->
+  <div class="sheet-mask" id="venMask">    <div class="sheet">
       <div class="grab"></div>
       <h3 id="venTitle">记一笔买入</h3>
       <div class="sub" id="venSub"></div>
@@ -668,6 +686,16 @@ function normalize(d){
     }
   });
   out.payments=out.payments.filter(p=>p && pids[p.partyId]);
+  /* 每包件数自愈：ppb 表是独立存的，恢复旧备份 / 换设备 / 清缓存后会丢；
+     但每条流水都记了当时的每包件数——缺哪款就从最近的流水里找回来。
+     手动在库存页改过的值优先（已存在的 key 不覆盖）。 */
+  out.records.slice().sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(r=>{
+    const ppb=Math.floor(Number(r.ppb)||0);
+    if(ppb>0 && r.name){
+      const k=(r.name||'')+'|'+(r.color||'');
+      if(!out.ppb[k]) out.ppb[k]=ppb;
+    }
+  });
   /* 款式排序（"款名|颜色" 的顺序表，不在里面的按默认顺序排后面） */
   out.skuOrder = Array.isArray(d.skuOrder) ? d.skuOrder.map(x=>String(x)) : [];
   /* 货料商 / 加工厂往来（kind: mat=货料, fac=加工） */
@@ -2416,8 +2444,12 @@ function renderPartyDetail(){
   pb.innerHTML = pays.length ? pays.map(x=>{
     return '<div class="mini"><div class="b"><div class="t1">¥'+fmt(x.amount)+'</div>'+
       '<div class="t2">'+fmtDate(x.date)+(x.note?(' · '+esc(x.note)):'')+'</div></div>'+
+      '<button class="del edit" data-pedit="payment" data-id="'+esc(x.id)+'">修改</button>'+
       '<button class="del" data-pay="'+esc(x.id)+'">删除</button></div>';
   }).join('') : '<div class="empty" style="padding:22px 10px">还没有回款记录</div>';
+  pb.querySelectorAll('button[data-pedit]').forEach(btn=>{
+    btn.addEventListener('click',()=>openPayEdit('payment',btn.dataset.id));
+  });
   pb.querySelectorAll('button[data-pay]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const id=btn.dataset.pay;
@@ -2459,8 +2491,12 @@ function renderVenDetail(){
     return '<div class="mini"><div class="b"><div class="t1">'+esc(r.desc||(isMat?'买入':'加工'))+'</div>'+
       '<div class="t2">'+fmtDate(r.date)+(r.qty?(' · '+esc(r.qty)):'')+(r.price?(' · ¥'+fmt(r.price)+'/单位'):'')+(r.note?(' · '+esc(r.note)):'')+'</div></div>'+
       '<div class="amt" style="display:flex;align-items:center;gap:8px">¥'+fmt(r.amount)+
+      '<button class="del edit" data-vedit="'+esc(r.id)+'">修改</button>'+
       '<button class="del" data-vrec="'+esc(r.id)+'">删除</button></div></div>';
   }).join('') : '<div class="empty" style="padding:22px 10px">还没有'+L.verb+'记录，点下面「记一笔'+L.verb+'」</div>';
+  ob.querySelectorAll('button[data-vedit]').forEach(btn=>{
+    btn.addEventListener('click',()=>openPayEdit('venRec',btn.dataset.vedit));
+  });
   ob.querySelectorAll('button[data-vrec]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const id=btn.dataset.vrec;
@@ -2476,8 +2512,12 @@ function renderVenDetail(){
   pb.innerHTML = pays.length ? pays.map(x=>{
     return '<div class="mini"><div class="b"><div class="t1">¥'+fmt(x.amount)+'</div>'+
       '<div class="t2">'+fmtDate(x.date)+(x.note?(' · '+esc(x.note)):'')+'</div></div>'+
+      '<button class="del edit" data-pedit="venPay" data-id="'+esc(x.id)+'">修改</button>'+
       '<button class="del" data-pay="'+esc(x.id)+'">删除</button></div>';
   }).join('') : '<div class="empty" style="padding:22px 10px">还没有付款记录</div>';
+  pb.querySelectorAll('button[data-pedit]').forEach(btn=>{
+    btn.addEventListener('click',()=>openPayEdit('venPay',btn.dataset.id));
+  });
   pb.querySelectorAll('button[data-pay]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const id=btn.dataset.pay;
@@ -2622,6 +2662,86 @@ document.getElementById('venSave').addEventListener('click',()=>{
   toast('已记录 ¥'+fmt(t.total)+(desc?('（'+desc+'）'):''));
 });
 
+/* ---------- 修改往来记录（回款 / 付款 / 买入 / 加工 通用） ----------
+   打开哪条都能改：日期、金额、内容、数量、单价、备注；保存后欠款/应收自动重算。 */
+const pEditMask=document.getElementById('pEditMask');
+let pEdit=null;   // {kind:'payment'|'venPay'|'venRec', id}
+function pEditOwner(kind,id){
+  if(kind==='venRec'){ const r=db.venRecords.find(x=>x.id===id); return r?db.venParties.find(x=>x.id===r.pid):null; }
+  if(kind==='venPay'){ const r=db.venPays.find(x=>x.id===id); return r?db.venParties.find(x=>x.id===r.pid):null; }
+  const r=db.payments.find(x=>x.id===id); return r?db.parties.find(x=>x.id===r.partyId):null;
+}
+function pEditTotalCalc(){
+  const qRaw=document.getElementById('peQty').value.trim();
+  const q=Number(qRaw);
+  const pr=Number(document.getElementById('pePrice').value);
+  const qty=(qRaw!=='' && q>0)?q:1;
+  const total=(pr>0)?Math.round(pr*qty*100)/100:0;
+  document.getElementById('peTotal').textContent='¥'+fmt(total);
+  return {qty:qty,total:total,price:pr};
+}
+function openPayEdit(kind,id){
+  let r;
+  if(kind==='venRec') r=db.venRecords.find(x=>x.id===id);
+  else if(kind==='venPay') r=db.venPays.find(x=>x.id===id);
+  else r=db.payments.find(x=>x.id===id);
+  if(!r) return;
+  pEdit={kind:kind,id:id};
+  const isRec=kind==='venRec';
+  const owner=pEditOwner(kind,id);
+  const isMat=owner?owner.kind==='mat':true;
+  document.getElementById('pEditTitle').textContent =
+    kind==='payment' ? '修改回款' : (kind==='venPay' ? '修改付款' : ('修改'+(isMat?'买入':'加工')+(owner?(' · '+owner.name):'')));
+  document.getElementById('peDate').value=r.date||'';
+  document.getElementById('peNote').value=r.note||'';
+  document.getElementById('peDescField').style.display=isRec?'':'none';
+  document.getElementById('peQtyField').style.display=isRec?'':'none';
+  document.getElementById('pePriceField').style.display=isRec?'':'none';
+  document.getElementById('peTotalWrap').style.display=isRec?'':'none';
+  document.getElementById('peAmtField').style.display=isRec?'none':'';
+  document.getElementById('peAmtLab').textContent=kind==='payment'?'本次收回（元）':'本次支付（元）';
+  if(isRec){
+    document.getElementById('peDescLab').textContent=isMat?'买了什么':'做了什么';
+    document.getElementById('peDesc').value=r.desc||'';
+    document.getElementById('peQty').value=r.qty||'';
+    document.getElementById('pePrice').value=(Number(r.price)||0)||'';
+    pEditTotalCalc();
+  } else {
+    document.getElementById('peAmt').value=r.amount;
+  }
+  pEditMask.classList.add('open');
+}
+function closePayEdit(){ pEditMask.classList.remove('open'); pEdit=null; }
+document.getElementById('pEditCancel').addEventListener('click',closePayEdit);
+pEditMask.addEventListener('click',e=>{ if(e.target===pEditMask) closePayEdit(); });
+document.getElementById('peQty').addEventListener('input',pEditTotalCalc);
+document.getElementById('pePrice').addEventListener('input',pEditTotalCalc);
+document.getElementById('pEditSave').addEventListener('click',()=>{
+  if(!pEdit) return;
+  const date=document.getElementById('peDate').value||todayStr();
+  const note=document.getElementById('peNote').value.trim();
+  if(pEdit.kind==='venRec'){
+    const r=db.venRecords.find(x=>x.id===pEdit.id);
+    if(!r){ closePayEdit(); return; }
+    const t=pEditTotalCalc();
+    if(!(t.price>0)){ toast('请填写单价'); return; }
+    r.desc=document.getElementById('peDesc').value.trim();
+    r.qty=String(t.qty);
+    r.price=t.price; r.amount=t.total;
+    r.date=date; r.note=note;
+    toast('已修改，欠款已重算');
+  } else {
+    const amt=Number(document.getElementById('peAmt').value);
+    if(!(amt>0)){ toast('请填写正确的金额'); return; }
+    const r = pEdit.kind==='payment' ? db.payments.find(x=>x.id===pEdit.id) : db.venPays.find(x=>x.id===pEdit.id);
+    if(!r){ closePayEdit(); return; }
+    r.date=date; r.amount=amt; r.note=note;
+    toast(pEdit.kind==='payment'?'已修改，应收已重算':'已修改，欠款已重算');
+  }
+  cache(); if(autoSave) saveLedgerFile(true);
+  closePayEdit(); refresh();
+});
+
 /* ---------- 报表：账本文件与备份 ---------- */
 document.getElementById('saveFileBtn').addEventListener('click',()=>saveLedgerFile(false));
 document.getElementById('autoSave').addEventListener('change',e=>{ autoSave=e.target.checked; localStorage.setItem('fashion_autosave',autoSave?'1':'0'); toast(autoSave?'已开启自动保存':'已关闭自动保存'); });
@@ -2756,8 +2876,8 @@ function parseExcelLedger(buf){
         rec.warehouseId=whIds[wn];
       }
     }
-    // 每包件数：按 款|色 恢复
-    if(C.ppb>=0){ const ppb=Math.floor(Number(r[C.ppb])||0); if(ppb>0) ppbCopy[(name||'')+'|'+(color||'')]=ppb; }
+    // 每包件数：按 款|色 恢复；同时写进这条流水，以后再丢也能自愈
+    if(C.ppb>=0){ const ppb=Math.floor(Number(r[C.ppb])||0); if(ppb>0){ ppbCopy[(name||'')+'|'+(color||'')]=ppb; rec.ppb=ppb; } }
     if(C.sup>=0){ const s=String(r[C.sup]||'').trim(); if(s) rec.supplier=s; }
     // 往来对象：按名字找回 / 找不到就按客户新建
     if(type==='out' && C.party>=0){
