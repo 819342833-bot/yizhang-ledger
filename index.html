@@ -75,6 +75,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 .sort-item .ops button:disabled{opacity:.3;cursor:default}
 .sort-item.pick{cursor:pointer}
 .sort-item.pick.on{background:var(--brand-soft)}
+.sort-head{display:flex;align-items:center;justify-content:space-between;margin:2px 0 4px}
+.done-btn{background:none;border:none;color:#e5484d;font-size:17px;font-weight:700;padding:6px 2px;cursor:pointer;font-family:inherit}
+.sort-item{transition:transform .15s ease}
+.sort-item.dragging{transition:none;position:relative;z-index:5;background:#fff;box-shadow:0 6px 20px rgba(30,40,60,.18);border-radius:10px}
+.drag-handle{flex:none;width:42px;height:40px;display:flex;align-items:center;justify-content:center;color:#b3bac6;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.sort-item.dragging .drag-handle{color:var(--brand)}
+.ven-total{display:flex;align-items:baseline;justify-content:space-between;background:var(--brand-soft);border-radius:12px;padding:10px 14px;margin:2px 0 12px}
+.ven-total .lab{font-size:12px;color:var(--sub)}
+.ven-total .val{font-size:26px;font-weight:800;color:var(--brand)}
+.pd-name-wrap{text-align:center;padding:6px 18px 2px}
+.pd-name-wrap #pdName{font-size:26px;font-weight:800;color:var(--ink);line-height:1.25;word-break:break-all}
+.pd-name-wrap #pdNameSub{font-size:12px;color:var(--sub);margin-top:2px}
 .field input:focus,.field select:focus{border-color:var(--brand);background:#fff}
 .field input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .field input::-webkit-outer-spin-button,.field input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -296,6 +308,7 @@ input[type=file]{display:none}
 
     <div id="partyDetailView" style="display:none">
       <div style="padding:14px 18px 4px"><button class="btn ghost" id="partyBack">← 返回名单</button></div>
+      <div class="pd-name-wrap"><div id="pdName">—</div><div id="pdNameSub"></div></div>
       <div class="cards">
         <div class="c brand"><div class="lab" id="pdLabDue">应收（出货合计）</div><div class="val">¥<span id="pdDue">0</span></div></div>
         <div class="c white"><div class="lab" id="pdLabPaid">已收回</div><div class="val">¥<span id="pdPaid">0</span></div></div>
@@ -463,15 +476,16 @@ input[type=file]{display:none}
     </div>
   </div>
 
-  <!-- 款式排序 -->
+  <!-- 款式排序（拖拽） -->
   <div class="sheet-mask" id="skuSortMask">
     <div class="sheet">
       <div class="grab"></div>
-      <h3>调整款式排序</h3>
-      <div class="sub">用 ↑ ↓ 把款式挪到想要的位置，排在前面的在<b>库存页</b>和<b>出库选择</b>里都靠前显示。卖完的款式也能排。</div>
+      <div class="sort-head">
+        <h3 style="margin:0">调整款式排序</h3>
+        <button class="done-btn" id="skuSortSave">完成</button>
+      </div>
+      <div class="sub">按住右侧 <b>≡</b> 上下拖动即可随意滑动调顺序；排在前面的在<b>库存页</b>和<b>出库选择</b>里都靠前显示。卖完的款式也能排。</div>
       <div id="skuSortList" class="sort-list"></div>
-      <button class="btn" id="skuSortSave">保存排序</button>
-      <button class="btn ghost" id="skuSortClose">取消</button>
     </div>
   </div>
 
@@ -536,8 +550,9 @@ input[type=file]{display:none}
       <div class="sub" id="venSub"></div>
       <div class="field"><label>日期</label><input type="date" id="venDate"></div>
       <div class="field"><label id="venDescLab">买了什么</label><input type="text" id="venDesc" placeholder="如：全棉布料 60 支白坯"></div>
-      <div class="field"><label>数量（选填）</label><input type="text" id="venQty" inputmode="text" placeholder="如 3 匹 / 500 米，可不填"></div>
-      <div class="field"><label>金额（元）</label><input type="number" id="venAmt" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>数量（选填，不填按 1 算）</label><input type="number" id="venQty" inputmode="decimal" placeholder="如 500"></div>
+      <div class="field"><label id="venPriceLab">单价（元）</label><input type="number" id="venAmt" inputmode="decimal" placeholder="0"></div>
+      <div class="ven-total"><div class="lab" id="venTotalLab">总金额（数量 × 单价）</div><div class="val" id="venTotal">¥0</div></div>
       <div class="field"><label>备注</label><input type="text" id="venNote" placeholder="选填"></div>
       <button class="btn" id="venSave">保存</button>
       <button class="btn ghost" id="venCancel">取消</button>
@@ -1628,22 +1643,77 @@ function renderSkuSort(){
     const p=k.indexOf('|');
     const name=p>=0?k.slice(0,p):k, color=p>=0?k.slice(p+1):'';
     return '<div class="sort-item"><div class="n">'+esc(name)+(color?' <span style="color:var(--sub);font-weight:400">· '+esc(color)+'</span>':'')+'</div>'+
-      '<div class="ops">'+
-      '<button data-mv="up" data-i="'+i+'"'+(i===0?' disabled':'')+'>↑</button>'+
-      '<button data-mv="down" data-i="'+i+'"'+(i===sortWork.length-1?' disabled':'')+'>↓</button>'+
-      '</div></div>';
+      '<div class="drag-handle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="6.5" x2="20" y2="6.5"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17.5" x2="20" y2="17.5"/></svg></div></div>';
   }).join('');
-  box.querySelectorAll('button[data-mv]').forEach(b=>b.addEventListener('click',()=>{
-    const i=Number(b.dataset.i), j=i+(b.dataset.mv==='up'?-1:1);
-    if(j<0||j>=sortWork.length) return;
-    const t=sortWork[i]; sortWork[i]=sortWork[j]; sortWork[j]=t;
-    renderSkuSort();
-  }));
+  box.querySelectorAll('.drag-handle').forEach(h=>h.addEventListener('pointerdown',dragStart));
+}
+/* —— 拖拽排序：按住 ≡ 上下滑动，松手即落位 —— */
+let drag=null;
+function dragStart(e){
+  const box=document.getElementById('skuSortList');
+  const item=e.currentTarget.closest('.sort-item');
+  const items=Array.prototype.slice.call(box.querySelectorAll('.sort-item'));
+  const idx=items.indexOf(item);
+  if(idx<0||!item) return;
+  e.preventDefault();
+  drag={box,item,items,idx,cur:idx,startY:e.clientY,lastY:e.clientY,scroll0:box.scrollTop,
+        rects:items.map(el=>el.getBoundingClientRect()),
+        h:items[idx].getBoundingClientRect().height,timer:0};
+  item.classList.add('dragging');
+  try{ item.setPointerCapture(e.pointerId); }catch(err){}
+  document.addEventListener('pointermove',dragMove,{passive:false});
+  document.addEventListener('pointerup',dragEnd);
+  document.addEventListener('pointercancel',dragEnd);
+  /* 拖到列表上下边缘时自动滚动 */
+  drag.timer=setInterval(()=>{
+    if(!drag) return;
+    const br=drag.box.getBoundingClientRect();
+    if(drag.lastY<br.top+36) drag.box.scrollTop-=6;
+    else if(drag.lastY>br.bottom-36) drag.box.scrollTop+=6;
+  },16);
+}
+function dragMove(e){
+  if(!drag) return;
+  e.preventDefault();
+  drag.lastY=e.clientY;
+  const s=drag.box.scrollTop-drag.scroll0;          // 拖动期间列表滚了多少
+  const dy=(e.clientY-drag.startY)+s;               // 换算成内容坐标
+  drag.item.style.transform='translateY('+dy+'px)';
+  const center=drag.rects[drag.idx].top+drag.rects[drag.idx].height/2+dy;
+  let t=drag.cur;
+  for(let i=0;i<drag.items.length;i++){
+    if(i===drag.cur) continue;
+    const mid=drag.rects[i].top+drag.rects[i].height/2;
+    if(i<drag.cur && center<mid) t=Math.min(t,i);
+    if(i>drag.cur && center>mid) t=Math.max(t,i);
+  }
+  if(t!==drag.cur){
+    const moved=sortWork.splice(drag.cur,1)[0];
+    sortWork.splice(t,0,moved);
+    drag.cur=t;
+  }
+  drag.items.forEach((el,i)=>{                      // 其余行让位
+    if(i===drag.idx) return;
+    let shift=0;
+    if(drag.cur<drag.idx && drag.cur<=i && i<drag.idx) shift=drag.h;
+    else if(drag.cur>drag.idx && drag.idx<i && i<=drag.cur) shift=-drag.h;
+    el.style.transform=shift?('translateY('+shift+'px)'):'';
+  });
+}
+function dragEnd(){
+  if(!drag) return;
+  clearInterval(drag.timer);
+  drag.item.classList.remove('dragging');
+  drag.items.forEach(el=>el.style.transform='');
+  drag=null;
+  document.removeEventListener('pointermove',dragMove);
+  document.removeEventListener('pointerup',dragEnd);
+  document.removeEventListener('pointercancel',dragEnd);
+  renderSkuSort();
 }
 function openSkuSort(){ sortWork=allSkuKeys(); renderSkuSort(); skuSortMask.classList.add('open'); }
 function closeSkuSort(){ skuSortMask.classList.remove('open'); }
 document.getElementById('skuSortBtn').addEventListener('click',openSkuSort);
-document.getElementById('skuSortClose').addEventListener('click',closeSkuSort);
 skuSortMask.addEventListener('click',e=>{ if(e.target===skuSortMask) closeSkuSort(); });
 document.getElementById('skuSortSave').addEventListener('click',()=>{
   db.skuOrder=sortWork.slice();
@@ -2010,6 +2080,9 @@ function renderPartyDetail(){
   if(!p){ backParty(); return; }
   const b=partyBill(p.id);
   const isC = p.type==='customer';
+  /* 顶部名称大标题：确认进对人了 */
+  document.getElementById('pdName').textContent=p.name;
+  document.getElementById('pdNameSub').textContent=isC?'客户':'商铺';
   const unit = isC?'包':'件';
   document.getElementById('pdDue').textContent=fmt(b.due);
   document.getElementById('pdPaid').textContent=fmt(b.paid);
@@ -2054,6 +2127,9 @@ function renderVenDetail(){
   if(!p){ backParty(); return; }
   const isMat=p.kind==='mat';
   const L={one:isMat?'货料商':'加工厂', verb:isMat?'买入':'加工'};
+  /* 顶部名称大标题：确认进对人了 */
+  document.getElementById('pdName').textContent=p.name;
+  document.getElementById('pdNameSub').textContent=isMat?'货料商':'加工厂';
   const b=venBill(p.id);
   setLab('pdLabDue', L.verb+'合计（应付）');
   setLab('pdLabPaid','已支付');
@@ -2074,7 +2150,7 @@ function renderVenDetail(){
   const ob=document.getElementById('pdOutList');
   ob.innerHTML = recs.length ? recs.map(r=>{
     return '<div class="mini"><div class="b"><div class="t1">'+esc(r.desc||(isMat?'买入':'加工'))+'</div>'+
-      '<div class="t2">'+fmtDate(r.date)+(r.qty?(' · '+esc(r.qty)):'')+(r.note?(' · '+esc(r.note)):'')+'</div></div>'+
+      '<div class="t2">'+fmtDate(r.date)+(r.qty?(' · '+esc(r.qty)):'')+(r.price?(' · ¥'+fmt(r.price)+'/单位'):'')+(r.note?(' · '+esc(r.note)):'')+'</div></div>'+
       '<div class="amt" style="display:flex;align-items:center;gap:8px">¥'+fmt(r.amount)+
       '<button class="del" data-vrec="'+esc(r.id)+'">删除</button></div></div>';
   }).join('') : '<div class="empty" style="padding:22px 10px">还没有'+L.verb+'记录，点下面「记一笔'+L.verb+'」</div>';
@@ -2202,28 +2278,41 @@ function openVenAdd(){
   document.getElementById('venQty').value='';
   document.getElementById('venAmt').value='';
   document.getElementById('venNote').value='';
+  venTotalCalc();
   venMask.classList.add('open');
   setTimeout(()=>{ try{ document.getElementById('venDesc').focus(); }catch(e){} },150);
 }
 function closeVenAdd(){ venMask.classList.remove('open'); }
 document.getElementById('venCancel').addEventListener('click',closeVenAdd);
 venMask.addEventListener('click',e=>{ if(e.target===venMask) closeVenAdd(); });
+/* 总金额 = 数量 × 单价，实时大字显示；数量不填按 1 算 */
+function venTotalCalc(){
+  const qRaw=document.getElementById('venQty').value.trim();
+  const q=Number(qRaw);
+  const pr=Number(document.getElementById('venAmt').value);
+  const qty=(qRaw!=='' && q>0)?q:1;
+  const total=(pr>0)?Math.round(pr*qty*100)/100:0;
+  document.getElementById('venTotal').textContent='¥'+fmt(total);
+  return {qty:qty,total:total,price:pr};
+}
+document.getElementById('venQty').addEventListener('input',venTotalCalc);
+document.getElementById('venAmt').addEventListener('input',venTotalCalc);
 document.getElementById('venSave').addEventListener('click',()=>{
   const p=db.venParties.find(x=>x.id===curPartyId);
   if(!p) return;
-  const isMat=p.kind==='mat';
   const desc=document.getElementById('venDesc').value.trim();
-  const amt=Number(document.getElementById('venAmt').value);
-  if(!(amt>0)){ toast('请填写金额'); return; }
+  const t=venTotalCalc();
+  if(!(t.price>0)){ toast('请填写单价'); return; }
   db.venRecords.push({
     id:uid(), kind:p.kind, pid:p.id,
     date:document.getElementById('venDate').value||todayStr(),
-    desc:desc, qty:document.getElementById('venQty').value.trim(),
-    amount:amt, note:document.getElementById('venNote').value.trim(), ts:Date.now()
+    desc:desc, qty:String(t.qty),
+    price:t.price, amount:t.total,
+    note:document.getElementById('venNote').value.trim(), ts:Date.now()
   });
   cache(); if(autoSave) saveLedgerFile(true);
   closeVenAdd(); refresh();
-  toast('已记录 ¥'+fmt(amt)+(desc?('（'+desc+'）'):''));
+  toast('已记录 ¥'+fmt(t.total)+(desc?('（'+desc+'）'):''));
 });
 
 /* ---------- 报表：账本文件与备份 ---------- */
