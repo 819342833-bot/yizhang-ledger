@@ -699,6 +699,25 @@ function stockByLoc(){
   });
   return order.map(k=>map[k]);
 }
+/* 「全部仓库」视图：把同一「款|色」在各仓的库存合并成一行
+   qty = 各仓相加；cost = 各仓相加；lastIn = 加权平均进价（cost / qty）
+   whs = 各仓明细，用于在卡片上显示「A仓 3.5包 · B仓 2包」 */
+function stockBySkuAll(){
+  const map={}, order=[];
+  stockByLoc().forEach(s=>{
+    const k=skuOf(s);
+    if(!map[k]){
+      map[k]={key:'ALL||'+k, whId:'ALL', name:s.name, color:s.color, qty:0, cost:0, whs:[]};
+      order.push(k);
+    }
+    const m=map[k];
+    m.qty += s.qty;
+    m.cost += s.cost;
+    if(s.qty>0) m.whs.push({whId:s.whId, qty:s.qty, lastIn:s.lastIn});
+  });
+  order.forEach(k=>{ const m=map[k]; m.lastIn = m.qty>0 ? (m.cost/m.qty) : 0; });
+  return order.map(k=>map[k]).filter(m=>m.qty>0);
+}
 /* 某仓某款当前进价（该仓最近一次入库价） */
 function costAt(whId,name,color){
   const s=stockByLoc().find(x=>x.whId===(whId||'') && x.name===(name||'') && x.color===(color||''));
@@ -753,16 +772,17 @@ function renderWhBar(){
 /* ---------- 渲染：库存页 ---------- */
 function renderStock(){
   renderWhBar();
-  const stocks=stockByLoc();
+  const isAll = (curWh==='all');
   const q=stockQuery.trim().toLowerCase();
-  const scoped = (curWh==='all') ? stocks : stocks.filter(s=>s.whId===curWh);
+  // 「全部仓库」时按「款|色」合并，数量是各仓之和；切到某个仓时仍按该仓单独显示
+  const scoped = isAll ? stockBySkuAll() : stockByLoc().filter(s=>s.whId===curWh);
   const filtered=scoped.filter(s=>{
     if(s.qty<=0) return false;
     if(!q) return true;
     return (s.name+' '+s.color).toLowerCase().indexOf(q)>=0;
   });
   let cost=0,qty=0,soldAmt=0,skus=0;
-  scoped.forEach(s=>{ if(s.qty<=0) return; cost+=s.qty*s.lastIn; qty+=s.qty; skus++; });
+  scoped.forEach(s=>{ if(s.qty<=0) return; cost += (isAll? s.cost : s.qty*s.lastIn); qty+=s.qty; skus++; });
   db.records.forEach(r=>{
     if(r.type!=='out') return;
     if(curWh!=='all' && (r.warehouseId||'')!==curWh) return;
@@ -786,15 +806,25 @@ function renderStock(){
   box.innerHTML=filtered.map(s=>{
     const ppb=ppbOf(s.name,s.color);
     const wh=whName(s.whId);
-    const whTag=(curWh==='all'&&wh)?'<span style="background:var(--brand-soft);color:var(--brand-deep);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700;margin-right:5px">'+esc(wh)+'</span>':'';
+    const whTag=(!isAll&&wh)?'<span style="background:var(--brand-soft);color:var(--brand-deep);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700;margin-right:5px">'+esc(wh)+'</span>':'';
     const meta2 = ppb>0 ? ('每包 '+ppb+' 件') : '点这里设置每包件数';
     const main = ppb>0 ? fmtBags(bagsOf(s.qty,ppb)) : fmt(s.qty);
     const unit = ppb>0 ? '包' : '件';
     const sub  = ppb>0 ? (fmt(s.qty)+' 件') : '';
+    // 全部仓库视图：把这款在每个仓各有多少列出来（一个仓时不重复显示）
+    let whLine='';
+    if(isAll && s.whs && s.whs.length>1){
+      whLine='<div class="meta" style="margin-top:3px">'+s.whs.map(w=>{
+        const wppb=ppb;
+        const txt = wppb>0 ? (fmtBags(bagsOf(w.qty,wppb))+' 包') : (fmt(w.qty)+' 件');
+        return '<span style="background:var(--brand-soft);color:var(--brand-deep);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700;margin-right:5px">'+esc(whName(w.whId))+' '+txt+'</span>';
+      }).join('')+'</div>';
+    }
     return `<div class="item" data-loc="${esc(s.key)}" style="cursor:pointer">
       <div class="body">
         <div class="name">${whTag}${esc(s.name)}${s.color?' <span style="color:var(--sub);font-weight:500">· '+esc(s.color)+'</span>':''}</div>
         <div class="meta">进价 ¥${fmt(s.lastIn)}/件 · ${meta2}</div>
+        ${whLine}
       </div>
       <div class="right"><div class="stock">${main}</div><div class="cap">${unit}${sub?' · '+sub:''}</div></div>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd3de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
@@ -1047,6 +1077,8 @@ function refresh(){
   if(curWh!=='all' && !db.warehouses.some(w=>w.id===curWh)) curWh='all';  // 仓库被删了就回到全部
   if(curPartyId && !db.parties.some(p=>p.id===curPartyId)) backParty();
   renderStock(); renderRecent(); renderReport(); renderLedger(); renderParty();
+  // 正开着某个人的账单时，账单里的数字也要跟着变（记回款、删回款、改出库后立即生效）
+  if(curPartyId) renderPartyDetail();
   fillWhPick(); fillPartyPick();
   if(mode==='out') fillOutPick();
 }
@@ -1326,16 +1358,27 @@ function splitLoc(loc){
 }
 function openSkuEdit(loc){
   const {whId,name,color}=splitLoc(loc);
-  const s=stockByLoc().find(x=>x.key===loc);
+  const isAll=(whId==='ALL');
+  let s;
+  if(isAll){
+    // 全部仓库合计：数量是各仓之和，进价按各仓库存加权平均
+    const rows=stockByLoc().filter(x=>x.name===name && x.color===color && x.qty>0);
+    const q=rows.reduce((a,b)=>a+b.qty,0);
+    const c=rows.reduce((a,b)=>a+b.cost,0);
+    s={qty:q, cost:c, lastIn:(q>0? c/q : 0)};
+    document.getElementById('skuSub').textContent = '全部仓库合计（'+rows.length+' 个仓有货）';
+  } else {
+    s=stockByLoc().find(x=>x.key===loc);
+    document.getElementById('skuSub').textContent = '所在仓库：'+(whName(whId)||'未指定');
+  }
   const ppb=ppbOf(name,color);
   curSku=loc;
   document.getElementById('skuTitle').textContent = color? name+' · '+color : name;
-  document.getElementById('skuSub').textContent = '所在仓库：'+(whName(whId)||'未指定');
   document.getElementById('skuStock').textContent = s ? (ppb>0? fmtBags(bagsOf(s.qty,ppb)) : fmt(s.qty)) : 0;
   document.getElementById('skuCost').textContent = '¥'+fmt(s?s.lastIn:0);
   document.getElementById('skuNewCost').value = '';
   document.getElementById('skuPpb').value = ppb>0? ppb : '';
-  const echo=document.getElementById('skuWhEcho'); if(echo) echo.textContent = whName(whId)||'这个仓库';
+  const echo=document.getElementById('skuWhEcho'); if(echo) echo.textContent = isAll? '全部仓库' : (whName(whId)||'这个仓库');
   const lab=skuMask.querySelector('.stat .s .lab'); if(lab) lab.textContent = ppb>0?'当前库存（包）':'当前库存（件）';
   skuMask.classList.add('open');
 }
@@ -1358,27 +1401,29 @@ document.getElementById('skuSaveCost').addEventListener('click',()=>{
   const v=Number(document.getElementById('skuNewCost').value);
   if(!(v>0)){ toast('请输入正确的进价'); return; }
   const {whId,name,color}=splitLoc(curSku);
+  const isAll=(whId==='ALL');
   let changed=0;
   db.records.forEach(r=>{
-    if((r.warehouseId||'')!==whId) return;
+    if(!isAll && (r.warehouseId||'')!==whId) return;
     if((r.name||'')!==name) return;
     if((r.color||'')!==color) return;
     if(r.type==='in'){ r.price=v; changed++; }
     else { r.cost=v; }
   });
-  if(!changed){ toast('未找到该仓库这款的入库记录'); return; }
+  if(!changed){ toast(isAll?'未找到这款的入库记录':'未找到该仓库这款的入库记录'); return; }
   cache();
   if(autoSave) saveLedgerFile(true);
   closeSku(); refresh();
-  toast('已更新进价为 ¥'+fmt(v));
+  toast('已更新进价为 ¥'+fmt(v)+(isAll?'（全部仓库）':''));
 });
 document.getElementById('skuDelete').addEventListener('click',()=>{
   if(!curSku) return;
   const {whId,name,color}=splitLoc(curSku);
-  const wn=whName(whId)||'未指定';
-  if(!confirm('确定删除「'+wn+'」里的这个商品吗？\n将同时删除它在该仓库的全部入库和出库记录，且不可恢复。建议先导出备份。')) return;
+  const isAll=(whId==='ALL');
+  const wn=isAll? '全部仓库' : (whName(whId)||'未指定');
+  if(!confirm('确定删除「'+wn+'」里的这个商品吗？\n将同时删除它'+(isAll?'在所有仓库':'在该仓库')+'的全部入库和出库记录，且不可恢复。建议先导出备份。')) return;
   const before=db.records.length;
-  db.records = db.records.filter(r=> !((r.warehouseId||'')===whId && (r.name||'')===name && (r.color||'')===color));
+  db.records = db.records.filter(r=> !((isAll || (r.warehouseId||'')===whId) && (r.name||'')===name && (r.color||'')===color));
   cache();
   if(autoSave) saveLedgerFile(true);
   closeSku(); refresh();
