@@ -151,6 +151,8 @@ input[type=file]{display:none}
 .chip{flex:none;white-space:nowrap;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;min-height:34px}
 .chip.active{background:var(--brand);border-color:var(--brand);color:#fff}
 .chip.add{border-style:dashed;color:var(--brand)}
+.chip .subb{font-size:11px;font-weight:700;opacity:.6;margin-left:5px}
+.chip.active .subb{opacity:.85}
 /* 往来：明细行 */
 .mini{background:var(--card);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .mini .b{flex:1;min-width:0}
@@ -182,7 +184,7 @@ input[type=file]{display:none}
     <div class="notice"><span class="dot"></span><div>账本会生成 Excel 文件保存。请在「报表」页点「保存 Excel 账本」，把它存到微信 / 网盘，数据就跟着文件走、不会丢。</div></div>
     <div class="cards">
       <div class="c brand"><div class="lab">当前库存成本</div><div class="val">¥<span id="kCost">0</span></div></div>
-      <div class="c brand"><div class="lab">在库件数</div><div class="val"><span id="kQty">0</span><small>件</small></div></div>
+      <div class="c brand"><div class="lab">在库件数</div><div class="val"><span id="kQty">0</span><small>件</small></div><div class="cap" id="kBags">合计 0 包</div></div>
       <div class="c white"><div class="lab">已售金额</div><div class="val">¥<span id="kSoldAmt">0</span></div></div>
       <div class="c white"><div class="lab">款型 SKU</div><div class="val"><span id="kSku">0</span><small>个</small></div></div>
     </div>
@@ -191,7 +193,7 @@ input[type=file]{display:none}
       <input id="stockSearch" placeholder="搜款式名 / 颜色">
     </div>
     <div id="whBar" class="chip-bar"></div>
-    <div style="padding:0 18px 8px;font-size:11px;color:var(--sub);line-height:1.6">上面一排可以切换仓库，看每个仓各剩多少。卖完（库存为 0）的款式不在这里显示，去底部「流水」页能查到它的入库出库记录，还能改能删。<b>点某一条款式</b>可以设置它「一包有多少件」，设了之后库存就按包显示。</div>
+    <div style="padding:0 18px 8px;font-size:11px;color:var(--sub);line-height:1.6">上面一排可以切换仓库，每个仓名字后面的小字就是<b>这个仓库现在总共有多少包</b>。卖完（库存为 0）的款式不在这里显示，去底部「流水」页能查到它的入库出库记录，还能改能删。<b>点某一条款式</b>可以设置它「一包有多少件」，设了之后库存就按包显示。</div>
     <div class="list" id="stockList"></div>
   </main>
 
@@ -436,6 +438,17 @@ input[type=file]{display:none}
       <button class="btn" id="whSave">保存</button>
       <button class="btn danger" id="whDelete" style="display:none">删除该仓库</button>
       <button class="btn ghost" id="whCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 仓库管理：改名 / 删除已有仓库 -->
+  <div class="sheet-mask" id="whManageMask">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>管仓库</h3>
+      <div class="sub">可以给已有仓库改名，或者删掉不用的仓库。<b>删除前建议先在「报表」页导出一份备份。</b></div>
+      <div id="whManageList" style="margin:8px 0 12px"></div>
+      <button class="btn ghost" id="whManageClose">关闭</button>
     </div>
   </div>
 
@@ -750,20 +763,49 @@ function partyBill(pid){
   return { due, paid, left: due-paid, qty, bags };
 }
 
+/* 一批库存行的「总包数」：只统计设过「每包件数」的款
+   没设的款没法换算成包，单独记件数（unsetQty），页面上会提示，不会混进包数里 */
+function bagsSum(rows){
+  let bags=0, unsetQty=0, unsetSku=0;
+  rows.forEach(s=>{
+    if(!s || !(s.qty>0)) return;
+    const ppb=ppbOf(s.name,s.color);
+    if(ppb>0) bags += bagsOf(s.qty,ppb);
+    else { unsetQty += s.qty; unsetSku++; }
+  });
+  return { bags:bags, unsetQty:unsetQty, unsetSku:unsetSku };
+}
+/* 每个仓库各有多少包：{whId: 包数} */
+function bagsByWh(){
+  const rows=stockByLoc(), out={};
+  rows.forEach(s=>{
+    if(!(s.qty>0)) return;
+    const ppb=ppbOf(s.name,s.color);
+    if(ppb>0) out[s.whId]=(out[s.whId]||0)+bagsOf(s.qty,ppb);
+  });
+  return out;
+}
+
 /* ---------- 渲染：仓库切换条 ---------- */
 function renderWhBar(){
   const bar=document.getElementById('whBar');
   if(!bar) return;
-  const chips=['<button class="chip'+(curWh==='all'?' active':'')+'" data-wh="all">全部仓库</button>'];
+  // 每个仓后面标出「这个仓库总共有多少包」
+  const perWh=bagsByWh();
+  let allBags=0; db.warehouses.forEach(w=>{ allBags += (perWh[w.id]||0); });
+  const sub=n=> n>0 ? '<span class="subb">'+fmtBags(n)+'包</span>' : '';
+  const chips=['<button class="chip'+(curWh==='all'?' active':'')+'" data-wh="all">全部仓库'+sub(allBags)+'</button>'];
   db.warehouses.forEach(w=>{
-    chips.push('<button class="chip'+(curWh===w.id?' active':'')+'" data-wh="'+esc(w.id)+'">'+esc(w.name)+'</button>');
+    chips.push('<button class="chip'+(curWh===w.id?' active':'')+'" data-wh="'+esc(w.id)+'">'+esc(w.name)+sub(perWh[w.id]||0)+'</button>');
   });
   chips.push('<button class="chip add" data-wh="__new">+ 新建仓库</button>');
+  if(db.warehouses.length) chips.push('<button class="chip" data-wh="__manage">管仓库</button>');
   bar.innerHTML=chips.join('');
   bar.querySelectorAll('.chip').forEach(b=>{
     b.addEventListener('click',()=>{
       const v=b.dataset.wh;
       if(v==='__new'){ openWhEdit(null); return; }
+      if(v==='__manage'){ openWhManage(); return; }
       curWh=v; renderStock();
     });
   });
@@ -792,6 +834,19 @@ function renderStock(){
   document.getElementById('kQty').textContent=qty;
   document.getElementById('kSoldAmt').textContent=fmt(soldAmt);
   document.getElementById('kSku').textContent=skus;
+  // 总包数：只算设过「每包件数」的款；没设的按件另说，不混进去
+  const bs=bagsSum(scoped);
+  const kBags=document.getElementById('kBags');
+  if(kBags){
+    let txt='合计 0 包';
+    if(bs.bags>0){
+      txt = '合计 '+fmtBags(bs.bags)+' 包';
+      if(bs.unsetQty>0) txt += '（另有 '+fmt(bs.unsetQty)+' 件没设每包件数）';
+    } else if(bs.unsetQty>0){
+      txt = '有 '+fmt(bs.unsetQty)+' 件，没设每包件数';
+    }
+    kBags.textContent = txt;
+  }
   const box=document.getElementById('stockList');
   if(!db.warehouses.length){
     box.innerHTML='<div class="guide"><div class="gt">先建一个仓库</div><div class="gd">你还没有任何仓库。货放在哪就建哪个仓，比如「十三行档口」「家里」。<br>建好之后才能入库记账。</div><button class="btn" id="guideWhBtn" style="max-width:220px;margin:0 auto">+ 新建仓库</button></div>';
@@ -1437,10 +1492,10 @@ function openWhEdit(id){
   curWhEditId=id||null;
   const w=id?db.warehouses.find(x=>x.id===id):null;
   document.getElementById('whTitle').textContent = w?'仓库改名':'新建仓库';
-  document.getElementById('whSub').textContent = w?'改名后，这个仓里的进出记录会自动跟着走':'货放在哪就建哪个仓，建好之后入库时就能选它';
+  document.getElementById('whSub').textContent = w?'改名后，这个仓里的进出记录会自动跟着走；要删掉这个仓库就点下面的红色按钮':'货放在哪就建哪个仓，建好之后入库时就能选它';
   document.getElementById('whNameInput').value = w?w.name:'';
   const del=document.getElementById('whDelete');
-  del.style.display = (w && !db.records.some(r=>(r.warehouseId||'')===id)) ? '' : 'none';
+  del.style.display = w ? '' : 'none';   // 已有仓库才可删除（新建时没有可删的）
   whMask.classList.add('open');
   setTimeout(()=>{ try{ document.getElementById('whNameInput').focus(); }catch(e){} },150);
 }
@@ -1463,15 +1518,60 @@ document.getElementById('whSave').addEventListener('click',()=>{
 });
 document.getElementById('whDelete').addEventListener('click',()=>{
   if(!curWhEditId) return;
-  const w=db.warehouses.find(x=>x.id===curWhEditId);
-  if(!w) return;
-  if(db.records.some(r=>(r.warehouseId||'')===curWhEditId)){ toast('这个仓库里还有货，不能删'); return; }
-  if(!confirm('确定删除仓库「'+w.name+'」吗？它是空的，需要时可以重新建。')) return;
-  db.warehouses=db.warehouses.filter(x=>x.id!==curWhEditId);
-  if(curWh===curWhEditId) curWh='all';
-  cache(); if(autoSave) saveLedgerFile(true);
-  closeWh(); refresh(); toast('已删除仓库「'+w.name+'」');
+  delWh(curWhEditId);
 });
+
+/* ---------- 仓库管理：已有仓库改名 / 删除 ---------- */
+const whManageMask=document.getElementById('whManageMask');
+function closeWhManage(){ whManageMask.classList.remove('open'); }
+function openWhManage(){
+  const box=document.getElementById('whManageList');
+  const perWh=bagsByWh();
+  box.innerHTML = db.warehouses.length
+    ? db.warehouses.map(w=>{
+        const n=db.records.filter(r=>(r.warehouseId||'')===w.id).length;
+        const b=perWh[w.id]||0;
+        const meta = n + ' 条记录' + (b>0 ? (' · 现存 '+fmtBags(b)+' 包') : '');
+        return '<div class="ledger-item">'
+          + '<div class="lab">'+esc(w.name)+'<span class="sub">'+esc(meta)+'</span></div>'
+          + '<div style="display:flex;gap:6px;flex:none">'
+          + '<button data-mv="edit:'+esc(w.id)+'">改名</button>'
+          + '<button class="warn" data-mv="del:'+esc(w.id)+'">删除</button>'
+          + '</div></div>';
+      }).join('')
+    : '<div class="sub">还没有仓库，先点「+ 新建仓库」建一个。</div>';
+  box.querySelectorAll('button[data-mv]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=b.dataset.mv.split(':');
+      if(p[0]==='edit'){ closeWhManage(); openWhEdit(p[1]); }
+      else delWh(p[1]);
+    });
+  });
+  whManageMask.classList.add('open');
+}
+document.getElementById('whManageClose').addEventListener('click',closeWhManage);
+whManageMask.addEventListener('click',e=>{ if(e.target===whManageMask) closeWhManage(); });
+
+/* 删除仓库：空仓直接删；有记录的先说清楚会一起删掉，并要二次确认 */
+function delWh(id){
+  const w=db.warehouses.find(x=>x.id===id);
+  if(!w) return;
+  const n=db.records.filter(r=>(r.warehouseId||'')===id).length;
+  let msg;
+  if(n>0){
+    msg = '确定删除仓库「'+w.name+'」吗？\n\n它里面有 '+n+' 条入库/出库记录，会跟着一起删掉，删了找不回来。\n建议先到「报表」页导出一份备份。';
+  } else {
+    msg = '确定删除仓库「'+w.name+'」吗？\n\n它是空的，需要时可以重新建。';
+  }
+  if(!confirm(msg)) return;
+  if(n>0 && !confirm('再确认一次：连同这 '+n+' 条记录一起删除，确定？')) return;
+  db.warehouses=db.warehouses.filter(x=>x.id!==id);
+  if(n>0) db.records=db.records.filter(r=>(r.warehouseId||'')!==id);
+  if(curWh===id) curWh='all';
+  cache(); if(autoSave) saveLedgerFile(true);
+  closeWh(); closeWhManage(); refresh();
+  toast('已删除仓库「'+w.name+'」'+(n>0?('及其 '+n+' 条记录'):''));
+}
 
 /* ---------- 往来对象：新增 / 改名 ---------- */
 let peEditId=null, peEditType='customer';
